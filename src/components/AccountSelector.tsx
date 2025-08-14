@@ -11,7 +11,7 @@ interface AccountSelectorProps {
   placeholder?: string;
   className?: string;
   error?: string;
-  excludeAccountId?: string; // Para transferências, excluir conta de origem
+  excludeAccountId?: string;
 }
 
 export function AccountSelector({
@@ -30,22 +30,29 @@ export function AccountSelector({
   const accountDAO = AccountDAO.getInstance();
 
   useEffect(() => {
-    loadAccounts();
+    const timer = setTimeout(() => {
+      loadAccounts();
+    }, 100);
+
+    return () => clearTimeout(timer);
   }, [excludeAccountId]);
 
   const loadAccounts = async () => {
     try {
       setLoading(true);
-      const allAccounts = await accountDAO.findAll();
+      console.log("AccountSelector: Iniciando carregamento de contas...");
 
-      // Filtrar conta excluída se especificada
+      const allAccounts = await accountDAO.findAll();
+      console.log("AccountSelector: contas carregadas:", allAccounts.length);
+
       const filteredAccounts = excludeAccountId
         ? allAccounts.filter((account) => account.id !== excludeAccountId)
         : allAccounts;
 
+      console.log("AccountSelector: contas filtradas:", filteredAccounts.length);
       setAccounts(filteredAccounts);
     } catch (error) {
-      console.error("Erro ao carregar contas:", error);
+      console.error("AccountSelector: Erro ao carregar contas:", error);
     } finally {
       setLoading(false);
     }
@@ -94,7 +101,10 @@ export function AccountSelector({
       )}
 
       <TouchableOpacity
-        onPress={() => setShowModal(true)}
+        onPress={() => {
+          console.log("AccountSelector: Abrindo modal");
+          setShowModal(true);
+        }}
         className={`flex-row items-center justify-between rounded-lg border bg-gray-100 px-3 py-3 dark:bg-gray-700 ${
           error ? "border-red-500" : "border-gray-300 dark:border-gray-600"
         }`}
@@ -124,37 +134,53 @@ export function AccountSelector({
           <Text className="text-base text-gray-500 dark:text-gray-400">{placeholder}</Text>
         )}
 
-        <Ionicons name="chevron-down" size={20} className="text-gray-500" />
+        <Ionicons name="chevron-down" size={20} style={{ color: "#6B7280" }} />
       </TouchableOpacity>
 
       {error && <Text className="mt-1 text-sm text-red-500">{error}</Text>}
 
-      {/* Modal de seleção */}
       <Modal visible={showModal} transparent animationType="slide">
         <View className="flex-1 justify-end bg-black/50">
-          <View className="max-h-96 rounded-t-xl bg-white dark:bg-gray-800">
-            {/* Header */}
+          {/* Container do bottom-sheet: usar estilo inline para evitar problemas de cálculo de altura */}
+          <View
+            className="rounded-t-xl bg-white dark:bg-gray-800"
+            style={{ maxHeight: 480, width: "100%", alignSelf: "stretch" }}
+          >
             <View className="flex-row items-center justify-between border-b border-gray-200 p-4 dark:border-gray-700">
               <Text className="text-lg font-semibold text-gray-900 dark:text-white">
                 Selecionar Conta
               </Text>
               <TouchableOpacity onPress={() => setShowModal(false)}>
-                <Ionicons name="close" size={24} className="text-gray-500" />
+                <Ionicons name="close" size={24} style={{ color: "#6B7280" }} />
               </TouchableOpacity>
             </View>
-
-            {/* Lista de contas */}
-            <ScrollView className="flex-1">
+            {/* ScrollView: remover flex-1 (pode colapsar) e controlar altura via maxHeight */}
+            <ScrollView
+              style={{ maxHeight: 420 }}
+              contentContainerStyle={{ paddingBottom: 24 }}
+              onLayout={(e) =>
+                console.log(
+                  "AccountSelector: ScrollView layout height=",
+                  e.nativeEvent.layout.height,
+                  "accounts=",
+                  accounts.length
+                )
+              }
+            >
               {loading ? (
                 <View className="items-center p-8">
                   <Text className="text-gray-600 dark:text-gray-400">Carregando contas...</Text>
                 </View>
               ) : accounts.length > 0 ? (
                 <View className="p-4">
+                  <Text className="mb-2 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                    {accounts.length} conta(s)
+                  </Text>
                   {accounts.map((account) => (
                     <TouchableOpacity
                       key={account.id}
                       onPress={() => {
+                        console.log("AccountSelector: Conta selecionada:", account.name);
                         onAccountSelect(account);
                         setShowModal(false);
                       }}
@@ -191,14 +217,14 @@ export function AccountSelector({
                       </View>
 
                       {selectedAccountId === account.id && (
-                        <Ionicons name="checkmark" size={20} className="ml-2 text-blue-500" />
+                        <Ionicons name="checkmark" size={20} style={{ color: "#3B82F6" }} />
                       )}
                     </TouchableOpacity>
                   ))}
                 </View>
               ) : (
                 <View className="items-center p-8">
-                  <Ionicons name="wallet-outline" size={48} className="mb-4 text-gray-400" />
+                  <Ionicons name="wallet-outline" size={48} style={{ color: "#9CA3AF" }} />
                   <Text className="text-center text-gray-600 dark:text-gray-400">
                     Nenhuma conta encontrada.{"\n"}
                     Crie uma conta primeiro.
@@ -212,3 +238,5 @@ export function AccountSelector({
     </View>
   );
 }
+
+AccountSelector.displayName = "AccountSelector";

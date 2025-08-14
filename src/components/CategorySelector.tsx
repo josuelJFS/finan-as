@@ -30,22 +30,38 @@ export function CategorySelector({
   const categoryDAO = CategoryDAO.getInstance();
 
   useEffect(() => {
-    loadCategories();
+    // Adicionar um pequeno delay para garantir que o banco foi inicializado
+    const timer = setTimeout(() => {
+      loadCategories();
+    }, 100);
+
+    return () => clearTimeout(timer);
   }, [transactionType]);
 
   const loadCategories = async () => {
     try {
       setLoading(true);
+      console.log("CategorySelector: Iniciando carregamento de categorias...");
+
       const allCategories = await categoryDAO.findAll();
+      console.log("CategorySelector: categorias carregadas:", allCategories.length);
+      console.log("CategorySelector: categorias:", allCategories);
 
       // Filtrar por tipo de transação se especificado
       const filteredCategories = transactionType
         ? allCategories.filter((category) => category.type === transactionType)
         : allCategories;
 
+      console.log(
+        "CategorySelector: categorias filtradas:",
+        filteredCategories.length,
+        "para tipo:",
+        transactionType
+      );
+      console.log("CategorySelector: categorias filtradas:", filteredCategories);
       setCategories(filteredCategories);
     } catch (error) {
-      console.error("Erro ao carregar categorias:", error);
+      console.error("CategorySelector: Erro ao carregar categorias:", error);
     } finally {
       setLoading(false);
     }
@@ -100,7 +116,10 @@ export function CategorySelector({
       )}
 
       <TouchableOpacity
-        onPress={() => setShowModal(true)}
+        onPress={() => {
+          console.log("CategorySelector: Abrindo modal");
+          setShowModal(true);
+        }}
         className={`flex-row items-center justify-between rounded-lg border bg-gray-100 px-3 py-3 dark:bg-gray-700 ${
           error ? "border-red-500" : "border-gray-300 dark:border-gray-600"
         }`}
@@ -138,7 +157,10 @@ export function CategorySelector({
       {/* Modal de seleção */}
       <Modal visible={showModal} transparent animationType="slide">
         <View className="flex-1 justify-end bg-black/50">
-          <View className="max-h-96 rounded-t-xl bg-white dark:bg-gray-800">
+          <View
+            className="rounded-t-xl bg-white dark:bg-gray-800"
+            style={{ maxHeight: 520, width: "100%", alignSelf: "stretch" }}
+          >
             {/* Header */}
             <View className="flex-row items-center justify-between border-b border-gray-200 p-4 dark:border-gray-700">
               <Text className="text-lg font-semibold text-gray-900 dark:text-white">
@@ -148,15 +170,28 @@ export function CategorySelector({
                 <Ionicons name="close" size={24} className="text-gray-500" />
               </TouchableOpacity>
             </View>
-
             {/* Lista de categorias */}
-            <ScrollView className="flex-1">
+            <ScrollView
+              style={{ maxHeight: 470 }}
+              contentContainerStyle={{ paddingBottom: 24 }}
+              onLayout={(e) =>
+                console.log(
+                  "CategorySelector: ScrollView layout height=",
+                  e.nativeEvent.layout.height,
+                  "categories=",
+                  categories.length
+                )
+              }
+            >
               {loading ? (
                 <View className="items-center p-8">
                   <Text className="text-gray-600 dark:text-gray-400">Carregando categorias...</Text>
                 </View>
               ) : Object.keys(groupedCategories).length > 0 ? (
                 <View className="p-4">
+                  <Text className="mb-2 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                    {categories.length} categoria(s)
+                  </Text>
                   {Object.entries(groupedCategories).map(([type, typeCategories]) => (
                     <View key={type} className="mb-6">
                       <Text className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-400">

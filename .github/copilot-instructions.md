@@ -35,7 +35,7 @@ Aplicativo de finanças pessoais, offline-first, usando Expo (React Native + Typ
 1. ⚠️ **Onboarding**: simples com moeda padrão, conta inicial e tema (BÁSICO IMPLEMENTADO)
 2. ✅ **CRUD de contas**: saldo inicial, tipos diferentes e saldo total (CONCLUÍDO + PULL-TO-REFRESH)
 3. ✅ **CRUD de categorias**: hierárquicas (despesa/receita) (CONCLUÍDO + PULL-TO-REFRESH)
-4. ⚠️ **CRUD de transações**: tipo, conta, valor, data/hora, categoria, notas, tags, anexos (PARCIAL)
+4. ✅ **CRUD de transações**: tipo, conta, valor, data/hora, categoria, notas, tags, anexos (CONCLUÍDO)
 5. ⚠️ **Busca e filtros**: com opção de salvar filtros (BÁSICO IMPLEMENTADO)
 6. ⚠️ **Orçamentos**: por categoria com alerta visual 80%/100% (UI CRIADA, LÓGICA FALTANDO)
 7. ❌ **Metas**: cálculo de progresso (NÃO IMPLEMENTADO)
@@ -77,12 +77,74 @@ Aplicativo de finanças pessoais, offline-first, usando Expo (React Native + Typ
 ❌ **Calcular progresso**: de orçamentos
 ❌ **Exportar CSV**: do período atual
 
-## COMPONENTES REUTILIZÁVEIS FALTANDO
+## COMPONENTES REUTILIZÁVEIS
 
-❌ **MoneyInput**: input para valores monetários
-❌ **DatePicker**: seletor de data
+✅ **MoneyInput**: input para valores monetários  
+✅ **DatePicker**: seletor de data  
+✅ **CategorySelector**: modal bottom-sheet com scroll fixo  
+✅ **AccountSelector**: modal bottom-sheet com scroll fixo  
 ❌ **CategoryPill**: chip de categoria
-❌ **AccountSelector**: seletor de conta
+
+### 🎨 PADRÃO DE BOTÕES EM FORMULÁRIOS (OBRIGATÓRIO)
+
+Para formulários de criar/editar, SEMPRE usar botões dentro do ScrollView com espaçamento seguro:
+
+**Estrutura obrigatória:**
+
+```tsx
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+
+const insets = useSafeAreaInsets();
+const bottomPadding = insets.bottom + 24; // espaço para botões dentro do scroll
+
+return (
+  <SafeAreaView className="flex-1 bg-gray-50 dark:bg-gray-900">
+    <ScrollView
+      className="flex-1"
+      contentContainerStyle={{ padding: 16, paddingBottom: bottomPadding }}
+      keyboardShouldPersistTaps="handled"
+    >
+      <View>
+        {/* Conteúdo do formulário */}
+
+        {/* Botões dentro do scroll */}
+        <View className="mt-2 flex-row gap-3 border-t border-gray-200 pt-3 dark:border-gray-700">
+          <TouchableOpacity
+            onPress={handleCancel}
+            className="flex-1 rounded-md bg-gray-200 py-3 dark:bg-gray-700"
+          >
+            <Text className="text-center font-semibold text-gray-900 dark:text-white">
+              Cancelar
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={handleSave}
+            disabled={loading}
+            className={`flex-1 rounded-md py-3 ${
+              loading ? "bg-gray-300 dark:bg-gray-600" : "bg-blue-500"
+            }`}
+          >
+            <Text className="text-center font-semibold text-white">
+              {loading ? "Salvando..." : isEditing ? "Atualizar" : "Criar"}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </ScrollView>
+  </SafeAreaView>
+);
+```
+
+**Pontos críticos:**
+
+- `paddingBottom: insets.bottom + 24` no ScrollView para espaço dos botões
+- Botões DENTRO do ScrollView (rolam junto com o conteúdo)
+- `border-t` + `pt-3` para separar visualmente dos campos
+- `py-3` nos botões para área de toque adequada
+- `keyboardShouldPersistTaps="handled"` para funcionamento do teclado
+- Botões sempre clicáveis acima da navigation bar do sistema
+
+**Aplicar em:** TransactionForm ✅, AccountForm, CategoryForm, BudgetForm, GoalForm
 
 ## DESENVOLVIMENTO ATUAL
 
@@ -95,18 +157,18 @@ Aplicativo de finanças pessoais, offline-first, usando Expo (React Native + Typ
 - Telas básicas com className
 - CRUD de contas completo (UI + lógica)
 - CRUD de categorias completo (UI + lógica hierárquica)
+- CRUD de transações completo (receitas, despesas, transferências)
 
-### ⚠️ EM PROGRESSO (Passo 4)
+### ⚠️ EM PROGRESSO (Passo 5)
 
-- CRUD completo de transações (próximo)
+- Dashboard com gráficos e KPIs (próximo)
 
-### ❌ PENDENTE (Passo 4-9)
+### ❌ PENDENTE (Passo 5-9)
 
-- CRUD completo de transações
+- Dashboard com gráficos e KPIs avançados
 - Filtros salvos e busca avançada
 - CRUD de orçamentos com alertas
 - Transações recorrentes
-- Dashboard com gráficos
 - Anexos de comprovantes
 - Backup e restore
 
@@ -120,8 +182,8 @@ Aplicativo de finanças pessoais, offline-first, usando Expo (React Native + Typ
 2. **Criar telas de CRUD**:
    - ✅ `/accounts` - Lista e criação de contas (COM BUG)
    - ✅ `/categories` - Lista e criação de categorias
-   - ❌ `/transaction/create` - Criar transação
-   - ❌ `/transaction/[id]` - Detalhe/edição
+   - ✅ `/transactions` - CRUD completo de transações
+   - ❌ Dashboard com gráficos e estatísticas
 
 3. **Implementar componentes**:
    - ✅ MoneyInput para valores

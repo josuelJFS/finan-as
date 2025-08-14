@@ -50,6 +50,12 @@ export default function AccountFormScreen() {
 
   const accountDAO = AccountDAO.getInstance();
 
+  // Obter ícone padrão baseado no tipo
+  const getIconForType = (accountType: string): string => {
+    const selectedType = ACCOUNT_TYPES.find((t) => t.value === accountType);
+    return selectedType?.icon || "wallet";
+  };
+
   useEffect(() => {
     if (isEdit && id) {
       loadAccount(id as string);
@@ -103,12 +109,11 @@ export default function AccountFormScreen() {
 
       if (isEdit && account) {
         // Atualizar conta existente
-        const selectedAccountType = ACCOUNT_TYPES.find((t) => t.value === type);
         const updateData: UpdateAccountData = {
           name: name.trim(),
           type: type as any,
           color,
-          icon: selectedAccountType?.icon || "wallet",
+          icon: getIconForType(type),
           is_archived: isArchived,
         };
 
@@ -117,13 +122,12 @@ export default function AccountFormScreen() {
         Alert.alert("Sucesso", "Conta atualizada com sucesso");
       } else {
         // Criar nova conta
-        const selectedAccountType = ACCOUNT_TYPES.find((t) => t.value === type);
         const accountData = {
           name: name.trim(),
           type: type as any,
           initial_balance: initialBalance,
           color,
-          icon: selectedAccountType?.icon || "wallet",
+          icon: getIconForType(type),
           is_archived: false,
           description: undefined,
         };
