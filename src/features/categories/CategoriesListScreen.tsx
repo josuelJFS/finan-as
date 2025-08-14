@@ -189,9 +189,7 @@ export default function CategoriesListScreen() {
           keyExtractor={(item) => item.id}
           contentContainerStyle={{ padding: 16 }}
           showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-          }
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         />
       )}
     </View>

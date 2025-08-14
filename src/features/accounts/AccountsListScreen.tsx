@@ -137,11 +137,9 @@ export default function AccountsScreen() {
         </View>
       </View>
 
-      <ScrollView 
+      <ScrollView
         className="flex-1"
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
         {accounts.length > 0 ? (
           <View className="space-y-3 p-4">
