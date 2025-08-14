@@ -1,11 +1,8 @@
 import * as SQLite from "expo-sqlite";
 import { getDatabase } from "./migrations";
+import { Events } from "../events";
 import { AccountDAO } from "./AccountDAO";
-import type {
-  Transaction,
-  TransactionType,
-  TransactionFilters,
-} from "../../types/entities";
+import type { Transaction, TransactionType, TransactionFilters } from "../../types/entities";
 
 export class TransactionDAO {
   private static instance: TransactionDAO;
@@ -77,6 +74,9 @@ export class TransactionDAO {
       }
 
       await db.execAsync("COMMIT");
+      // Emitir eventos
+      Events.emit("transactions:changed", { action: "create", id: transactionId });
+      Events.emit("accounts:balancesChanged", undefined as any);
       return transactionId;
     } catch (error) {
       await db.execAsync("ROLLBACK");
@@ -101,18 +101,12 @@ export class TransactionDAO {
   async findById(id: string): Promise<Transaction | null> {
     const db = await this.getDb();
 
-    const row = await db.getFirstAsync<any>("SELECT * FROM transactions WHERE id = ?", [
-      id,
-    ]);
+    const row = await db.getFirstAsync<any>("SELECT * FROM transactions WHERE id = ?", [id]);
 
     return row ? this.mapRowToTransaction(row) : null;
   }
 
-  async findByAccount(
-    accountId: string,
-    limit?: number,
-    offset?: number
-  ): Promise<Transaction[]> {
+  async findByAccount(accountId: string, limit?: number, offset?: number): Promise<Transaction[]> {
     const db = await this.getDb();
 
     let query = `
@@ -220,10 +214,7 @@ export class TransactionDAO {
       if (setClause.length > 0) {
         values.push(id);
 
-        await db.runAsync(
-          `UPDATE transactions SET ${setClause.join(", ")} WHERE id = ?`,
-          values
-        );
+        await db.runAsync(`UPDATE transactions SET ${setClause.join(", ")} WHERE id = ?`, values);
       }
 
       // Aplicar novos saldos (se a transação atualizada não for pendente)
@@ -233,6 +224,8 @@ export class TransactionDAO {
       }
 
       await db.execAsync("COMMIT");
+      Events.emit("transactions:changed", { action: "update", id });
+      Events.emit("accounts:balancesChanged", undefined as any);
     } catch (error) {
       await db.execAsync("ROLLBACK");
       throw error;
@@ -260,6 +253,8 @@ export class TransactionDAO {
       await db.runAsync("DELETE FROM transactions WHERE id = ?", [id]);
 
       await db.execAsync("COMMIT");
+      Events.emit("transactions:changed", { action: "delete", id });
+      Events.emit("accounts:balancesChanged", undefined as any);
     } catch (error) {
       await db.execAsync("ROLLBACK");
       throw error;
@@ -368,10 +363,7 @@ export class TransactionDAO {
         // Subtrair da conta origem e adicionar à conta destino
         if (transaction.destination_account_id) {
           await this.adjustAccountBalance(transaction.account_id, -transaction.amount);
-          await this.adjustAccountBalance(
-            transaction.destination_account_id,
-            transaction.amount
-          );
+          await this.adjustAccountBalance(transaction.destination_account_id, transaction.amount);
         }
         break;
     }
@@ -393,25 +385,19 @@ export class TransactionDAO {
         // Reverter: adicionar à conta origem e subtrair da conta destino
         if (transaction.destination_account_id) {
           await this.adjustAccountBalance(transaction.account_id, transaction.amount);
-          await this.adjustAccountBalance(
-            transaction.destination_account_id,
-            -transaction.amount
-          );
+          await this.adjustAccountBalance(transaction.destination_account_id, -transaction.amount);
         }
         break;
     }
   }
 
-  private async adjustAccountBalance(
-    accountId: string,
-    adjustment: number
-  ): Promise<void> {
+  private async adjustAccountBalance(accountId: string, adjustment: number): Promise<void> {
     const db = await this.getDb();
 
-    await db.runAsync(
-      "UPDATE accounts SET current_balance = current_balance + ? WHERE id = ?",
-      [adjustment, accountId]
-    );
+    await db.runAsync("UPDATE accounts SET current_balance = current_balance + ? WHERE id = ?", [
+      adjustment,
+      accountId,
+    ]);
   }
 
   private buildFilterQuery(

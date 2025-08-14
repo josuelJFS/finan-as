@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { useRouter, useFocusEffect } from "expo-router";
 import { useCallback } from "react";
 import { AccountDAO, TransactionDAO } from "../../src/lib/database";
+import { Events } from "../../src/lib/events";
 import { formatCurrency } from "../../src/lib/utils";
 import type { Account, BalanceSummary } from "../../src/types/entities";
 
@@ -20,6 +21,17 @@ export default function DashboardScreen() {
 
   useEffect(() => {
     loadDashboardData();
+    const off1 = Events.on("accounts:balancesChanged", () => {
+      // Atualiza saldos e contas rapidamente
+      loadDashboardData();
+    });
+    const off2 = Events.on("transactions:changed", () => {
+      loadDashboardData();
+    });
+    return () => {
+      off1();
+      off2();
+    };
   }, []);
 
   useFocusEffect(

@@ -244,6 +244,58 @@ export class BudgetDAO {
     return progressList;
   }
 
+  // Versão otimizada: calcula gasto via subquery em lote
+  async getActiveBudgetsProgressOptimized(): Promise<BudgetProgress[]> {
+    const db = await this.getDb();
+    const query = `
+      SELECT 
+        b.*, 
+        c.name as category_name,
+        (
+          SELECT COALESCE(SUM(t.amount),0)
+          FROM transactions t
+          WHERE t.type = 'expense'
+            AND t.is_pending = 0
+            AND t.occurred_at >= b.period_start
+            AND t.occurred_at <= b.period_end
+            AND (b.category_id IS NULL OR t.category_id = b.category_id)
+        ) as spent
+      FROM budgets b
+      LEFT JOIN categories c ON b.category_id = c.id
+      WHERE b.is_active = 1
+      ORDER BY b.created_at DESC
+    `;
+
+    const rows = await db.getAllAsync<any>(query);
+
+    return rows.map((row) => {
+      const amount = row.amount as number;
+      const spent = row.spent as number;
+      const percentage = amount > 0 ? Math.min((spent / amount) * 100, 100) : 0;
+      const remaining = amount - spent;
+      return {
+        budget: {
+          id: row.id,
+          name: row.name,
+          category_id: row.category_id,
+          amount: row.amount,
+            period_type: row.period_type,
+          period_start: row.period_start,
+          period_end: row.period_end,
+          alert_percentage: row.alert_percentage,
+          is_active: row.is_active === 1,
+          created_at: row.created_at,
+          updated_at: row.updated_at,
+          category_name: row.category_name,
+        } as any,
+        spent,
+        percentage,
+        remaining,
+        is_exceeded: spent > amount,
+      } as BudgetProgress;
+    });
+  }
+
   // Calcular valor gasto no orçamento
   private async calculateSpentAmount(budget: Budget): Promise<number> {
     const db = await this.getDb();
@@ -270,20 +322,8 @@ export class BudgetDAO {
 
   // Buscar orçamentos ativos do período atual
   async getCurrentActiveBudgets(): Promise<BudgetProgress[]> {
-    try {
-      console.log("BudgetDAO: Iniciando getCurrentActiveBudgets");
-
-      // Primeiro, vamos buscar TODOS os orçamentos ativos para testar
-      const progressList = await this.getBudgetProgress({
-        is_active: true,
-      });
-
-      console.log("BudgetDAO: getCurrentActiveBudgets sucesso, items:", progressList.length);
-      return progressList;
-    } catch (error) {
-      console.error("BudgetDAO: Erro em getCurrentActiveBudgets:", error);
-      throw error;
-    }
+  // Usar versão otimizada
+  return this.getActiveBudgetsProgressOptimized();
   }
 
   // Método de teste simples
@@ -305,10 +345,7 @@ export class BudgetDAO {
     }
   } // Buscar orçamentos que precisam de alerta
   async getBudgetsWithAlerts(): Promise<BudgetProgress[]> {
-    const progressList = await this.getCurrentActiveBudgets();
-
-    return progressList.filter(
-      (progress) => progress.percentage >= progress.budget.alert_percentage
-    );
+  const progressList = await this.getCurrentActiveBudgets();
+  return progressList.filter((p) => p.percentage >= p.budget.alert_percentage);
   }
 }

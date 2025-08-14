@@ -82,7 +82,7 @@ Aplicativo de finanças pessoais, offline-first, usando Expo (React Native + Typ
 3. ✅ **CRUD de categorias**: hierárquicas (despesa/receita) (CONCLUÍDO + PULL-TO-REFRESH)
 4. ✅ **CRUD de transações**: tipo, conta, valor, data/hora, categoria, notas, tags, anexos (CONCLUÍDO)
 5. ⚠️ **Busca e filtros**: com opção de salvar filtros (BÁSICO IMPLEMENTADO)
-6. ⚠️ **Orçamentos**: por categoria com alerta visual 80%/100% (UI CRIADA, LÓGICA FALTANDO)
+6. ✅ **Orçamentos**: CRUD completo (criar, editar, excluir) + progresso básico e alerta visual (refinar cálculo e alertas globais pendente)
 7. ❌ **Metas**: cálculo de progresso (NÃO IMPLEMENTADO)
 8. ❌ **Transações recorrentes**: regras e materialização automática (NÃO IMPLEMENTADO)
 9. ⚠️ **Dashboard**: saldo total, entradas/saídas, gráficos (BÁSICO IMPLEMENTADO)
@@ -119,8 +119,9 @@ Aplicativo de finanças pessoais, offline-first, usando Expo (React Native + Typ
 ❌ **Criar transação**: atualização de saldo atômica
 ❌ **Filtros salvos**: totais recalculados
 ❌ **Materializar recorrências**: na abertura do app
-❌ **Calcular progresso**: de orçamentos
+⚠️ **Calcular progresso**: de orçamentos (otimização e cache incremental)
 ❌ **Exportar CSV**: do período atual
+❌ **Alertas de orçamento**: surfaced no dashboard
 
 ## COMPONENTES REUTILIZÁVEIS
 
@@ -208,14 +209,15 @@ return (
 
 ### ⚠️ EM PROGRESSO (Passo 5)
 
-- Lógica de saldos em tempo real (próximo)
-- Dashboard com gráficos e KPIs
+- Lógica de saldos em tempo real
+- Dashboard com gráficos e KPIs (versão inicial)
+- Otimização de cálculo de progresso de orçamentos
 
 ### ❌ PENDENTE (Passo 5-9)
 
-- Dashboard com gráficos e KPIs avançados
+- Dashboard avançado (drilldown, comparativos)
 - Filtros salvos e busca avançada
-- CRUD de orçamentos com alertas
+- Alertas de orçamento consolidados (dashboard + badges)
 - Transações recorrentes
 - Anexos de comprovantes
 - Backup e restore
@@ -227,11 +229,13 @@ return (
    - ✅ Função getIconForType() implementada para garantir ícone baseado no tipo
    - ✅ Dados de criação/atualização sempre com ícone válido
 
-2. **Criar telas de CRUD**:
-   - ✅ `/accounts` - Lista e criação de contas (CORRIGIDO)
-   - ✅ `/categories` - Lista e criação de categorias
-   - ✅ `/transactions` - CRUD completo de transações
-   - ❌ Dashboard com gráficos e estatísticas
+2. **CRUDs**:
+
+- ✅ Contas
+- ✅ Categorias
+- ✅ Transações
+- ✅ Orçamentos
+- ❌ Dashboard com gráficos e estatísticas
 
 3. **Implementar componentes**:
    - ✅ MoneyInput para valores
@@ -239,10 +243,12 @@ return (
    - ✅ CategorySelector
    - ✅ AccountSelector
 
-4. **Funcionalidade core**:
-   - ❌ Criar transação com atualização de saldo
-   - ❌ Cálculo de saldos em tempo real
-   - ❌ Filtros funcionais
+4. **Funcionalidade core (próximo)**:
+
+- Atualização de saldo em criar/editar/excluir transações
+- Recalcular saldos globais incrementalmente
+- Filtros funcionais básicos (conta, tipo, período)
+- Otimizar cálculo de progresso de orçamentos e alertas
 
 ## GUIDELINES DE DESENVOLVIMENTO
 
@@ -274,15 +280,16 @@ src/
     └── entities.ts   # ✅ Tipos das entidades
 ```
 
-## PRÓXIMOS PASSOS CRÍTICOS
+## PRÓXIMOS PASSOS CRÍTICOS (Atualizado)
 
-1. **Implementar CRUD de Contas** - Tela de lista e criação
-2. **Implementar CRUD de Categorias** - Tela de lista e criação
-3. **Implementar CRUD de Transações** - Formulário completo
-4. **Criar componentes reutilizáveis** - MoneyInput, DatePicker, etc.
-5. **Implementar lógica de saldos** - Atualização atômica
-6. **Adicionar gráficos** - Charts para dashboard
-7. **Implementar backup/restore** - Export/import JSON/CSV
+1. Lógica de saldos em tempo real (operações atômicas)
+2. Dashboard: KPIs + gráfico entradas vs saídas
+3. Progresso de orçamentos otimizado + alertas no dashboard
+4. Filtros básicos persistentes (conta, categoria, tipo, período)
+5. Exportação CSV (período atual)
+6. Motor de recorrências (materialização idempotente)
+7. Backup/Restore JSON
+8. Suporte a anexos (estrutura de arquivo + preview)
 
 ## DESIGN E UX
 
