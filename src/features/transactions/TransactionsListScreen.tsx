@@ -19,10 +19,12 @@ import { Ionicons } from "@expo/vector-icons";
 import { TransactionDAO, AccountDAO, CategoryDAO } from "../../lib/database";
 import { exportTransactionsCsv } from "./exportCsv";
 import { FilterChips, AdvancedFilterModal } from "../../components";
+import { PresetsModal } from "../../components/PresetsModal";
 import { formatCurrency } from "../../lib/utils";
 import type { Transaction, Account, Category, TransactionFilters } from "../../types/entities";
 import { useAppStore } from "../../lib/store";
 import { Events } from "../../lib/events";
+import { countActiveFilters } from "./filtersUtil";
 
 interface TransactionWithDetails extends Transaction {
   account_name: string;
@@ -51,6 +53,11 @@ export default function TransactionsListScreen() {
   const [markTransfers, setMarkTransfers] = useState<boolean>(true);
   const [tagsMode, setTagsMode] = useState<"ANY" | "ALL">("ANY");
   const [includeTransfers, setIncludeTransfers] = useState(true);
+  const [showPresetsModal, setShowPresetsModal] = useState(false);
+  // Fallback rename modal (Android / platforms sem Alert.prompt)
+  const [showRenameModal, setShowRenameModal] = useState(false);
+  const [renameValue, setRenameValue] = useState("");
+  const [renamingFilterId, setRenamingFilterId] = useState<string | null>(null);
   const lastUsedFilters = useAppStore((s) => s.lastUsedFilters);
   const setLastUsedFilters = useAppStore((s) => s.setLastUsedFilters);
   const savedFilters = useAppStore((s) => s.savedFilters);
@@ -277,18 +284,7 @@ export default function TransactionsListScreen() {
     applyRange("month");
   };
 
-  const activeFiltersCount = [
-    filters.transaction_types?.length || 0,
-    filters.account_ids?.length || 0,
-    filters.category_ids?.length || 0,
-    filters.date_from ? 1 : 0,
-    filters.amount_min !== undefined ? 1 : 0,
-    filters.amount_max !== undefined ? 1 : 0,
-    filters.search_text ? 1 : 0,
-    filters.tags?.length || 0,
-    filters.is_pending !== undefined ? 1 : 0,
-    filters.include_transfers === false ? 1 : 0,
-  ].reduce((a, b) => a + (b > 0 ? 1 : 0), 0);
+  const activeFiltersCount = countActiveFilters(filters);
 
   const handleDeleteTransaction = async (transaction: TransactionWithDetails) => {
     Alert.alert(
@@ -514,23 +510,29 @@ export default function TransactionsListScreen() {
                     </TouchableOpacity>
                     <TouchableOpacity
                       onPress={() => {
-                        Alert.prompt?.(
-                          "Renomear Filtro",
-                          "Novo nome:",
-                          [
-                            { text: "Cancelar", style: "cancel" },
-                            {
-                              text: "Salvar",
-                              onPress: (text) => {
-                                if (text && text.trim().length > 0) {
-                                  updateSavedFilterName(sf.id, text.trim());
-                                }
+                        if (Alert.prompt) {
+                          Alert.prompt(
+                            "Renomear Filtro",
+                            "Novo nome:",
+                            [
+                              { text: "Cancelar", style: "cancel" },
+                              {
+                                text: "Salvar",
+                                onPress: (text) => {
+                                  if (text && text.trim().length > 0) {
+                                    updateSavedFilterName(sf.id, text.trim());
+                                  }
+                                },
                               },
-                            },
-                          ],
-                          "plain-text",
-                          sf.name
-                        );
+                            ],
+                            "plain-text",
+                            sf.name
+                          );
+                        } else {
+                          setRenamingFilterId(sf.id);
+                          setRenameValue(sf.name);
+                          setShowRenameModal(true);
+                        }
                       }}
                       className="ml-1"
                     >
@@ -564,6 +566,7 @@ export default function TransactionsListScreen() {
             setLastUsedFilters(updated);
             loadTransactions(undefined, undefined, updated);
           }}
+          openPresets={() => setShowPresetsModal(true)}
         />
       </View>
 
@@ -805,6 +808,69 @@ export default function TransactionsListScreen() {
         includeTransfers={includeTransfers}
         setIncludeTransfers={setIncludeTransfers}
       />
+      <PresetsModal
+        visible={showPresetsModal}
+        onClose={() => setShowPresetsModal(false)}
+        rangeKey={rangeKey}
+        applyRange={applyRange}
+        filters={filters}
+        applyTypes={(types) => {
+          const updated: TransactionFilters = { ...filters, transaction_types: types || undefined };
+          setFilters(updated);
+          setLastUsedFilters(updated);
+          loadTransactions(undefined, undefined, updated);
+        }}
+        clearTypes={() => {
+          const updated: TransactionFilters = { ...filters, transaction_types: undefined };
+          setFilters(updated);
+          setLastUsedFilters(updated);
+          loadTransactions(undefined, undefined, updated);
+        }}
+      />
+      {/* Modal Renomear Filtro (fallback) */}
+      <Modal visible={showRenameModal} animationType="fade" transparent>
+        <View className="flex-1 items-center justify-center bg-black/60">
+          <View className="w-11/12 max-w-sm rounded-lg bg-white p-4 dark:bg-gray-800">
+            <Text className="mb-3 text-base font-semibold text-gray-900 dark:text-white">
+              Renomear Filtro
+            </Text>
+            <TextInput
+              value={renameValue}
+              onChangeText={setRenameValue}
+              placeholder="Nome"
+              className="mb-4 rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+              autoFocus
+            />
+            <View className="flex-row gap-3">
+              <TouchableOpacity
+                onPress={() => {
+                  setShowRenameModal(false);
+                  setRenamingFilterId(null);
+                  setRenameValue("");
+                }}
+                className="flex-1 rounded-md bg-gray-200 py-3 dark:bg-gray-700"
+              >
+                <Text className="text-center font-semibold text-gray-900 dark:text-white">
+                  Cancelar
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => {
+                  if (renamingFilterId && renameValue.trim().length > 0) {
+                    updateSavedFilterName(renamingFilterId, renameValue.trim());
+                  }
+                  setShowRenameModal(false);
+                  setRenamingFilterId(null);
+                  setRenameValue("");
+                }}
+                className="flex-1 rounded-md bg-blue-500 py-3"
+              >
+                <Text className="text-center font-semibold text-white">Salvar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }

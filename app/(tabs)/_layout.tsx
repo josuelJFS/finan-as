@@ -1,15 +1,17 @@
 import { Tabs } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useColorScheme, View, Text } from "react-native";
-import { useAppStore } from "../../src/lib/store";
 import { useEffect, useState } from "react";
 import { BudgetDAO } from "../../src/lib/database/BudgetDAO";
 import { Events } from "../../src/lib/events";
+import { useAppStore } from "../../src/lib/store";
+// Nota: reorganizado imports para incluir store e events antes
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
   const { theme } = useAppStore();
   const [budgetAlerts, setBudgetAlerts] = useState<number>(0);
+  const lastUsedFilters = useAppStore((s) => s.lastUsedFilters);
 
   // Carrega alertas de orçamento (orçamentos onde percentage >= alert_percentage)
   async function loadBudgetAlerts() {
@@ -66,7 +68,30 @@ export default function TabLayout() {
         name="transactions"
         options={{
           title: "Transações",
-          tabBarIcon: ({ color }) => <Ionicons name="list" size={24} color={color} />,
+          tabBarIcon: ({ color }) => (
+            <View style={{ width: 28, height: 24, alignItems: "center", justifyContent: "center" }}>
+              <Ionicons name="list" size={22} color={color} />
+              {lastUsedFilters && Object.keys(lastUsedFilters).length > 0 && (
+                <View
+                  style={{
+                    position: "absolute",
+                    top: -2,
+                    right: -2,
+                    minWidth: 14,
+                    height: 14,
+                    borderRadius: 7,
+                    backgroundColor: "#6366f1",
+                    paddingHorizontal: 3,
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                  accessibilityLabel="Filtros ativos"
+                >
+                  <Text style={{ color: "white", fontSize: 9, fontWeight: "600" }}>•</Text>
+                </View>
+              )}
+            </View>
+          ),
         }}
       />
       <Tabs.Screen
@@ -92,7 +117,7 @@ export default function TabLayout() {
                   }}
                 >
                   <Text style={{ color: "white", fontSize: 10, fontWeight: "600" }}>
-                    {budgetAlerts > 9 ? "9+" : budgetAlerts}
+                    {budgetAlerts > 99 ? "99+" : budgetAlerts}
                   </Text>
                 </View>
               )}

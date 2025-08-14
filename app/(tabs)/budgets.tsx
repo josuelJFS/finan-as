@@ -29,15 +29,15 @@ export default function BudgetsScreen() {
   const loadBudgets = async () => {
     try {
       setLoading(true);
-      console.log("Iniciando carregamento de orçamentos...");
+      if (__DEV__) console.log("[BudgetsScreen] carregando orçamentos");
 
       // Primeiro, teste simples de conexão
       const testResults = await budgetDAO.testConnection();
-      console.log("Teste de conexão:", testResults);
+      if (__DEV__) console.log("[BudgetsScreen] teste conexão ok", testResults.length);
 
       // Se chegou até aqui, agora tenta carregamento completo
       const progressList = await budgetDAO.getCurrentActiveBudgets();
-      console.log("Orçamentos carregados:", progressList);
+      if (__DEV__) console.log("[BudgetsScreen] orçamentos carregados", progressList.length);
 
       setBudgetProgressList(progressList);
     } catch (error) {

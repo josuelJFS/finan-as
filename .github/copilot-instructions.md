@@ -76,12 +76,12 @@ Aplicativo de finanças pessoais, offline-first, usando Expo (React Native + Typ
 4. ✅ **CRUD de transações** (despesas/receitas/transferências + notas + tags básicas)
 5. ✅ **Busca e filtros Fase 1** (período, tipo, contas, multi categoria, texto, tags, faixa valor, pendentes, filtros salvos)
 6. ✅ **Orçamentos** (CRUD + progresso + alertas básicos + cache fase 1)
-7. 🔶 **Transações recorrentes** (DAO + cálculo próxima ocorrência + materialização básica no startup + telas lista/form esqueleto; faltam: seleção real de contas/categorias, edição, toggle ativa/inativa, dias semana, transferências, UI completa, marcação nas transações)
-8. 🔶 **Backup & Restore (export/import JSON + validação)**
-9. 🔶 **Dashboard** (básico pronto; faltam comparativos adicionais / toggle 6-12m / linha tendência)
-10. ❌ **Alertas de orçamento consolidados (painel unificado)**
-11. 🔶 **Exportação CSV v2** (tags + separador + marcador transfer OK; falta formatação regional números)
-12. ❌ **Filtros avançados Fase 2** (UX chips refinada, presets rápidos, AND/OR tags, destaque transfers, reset 1 toque)
+7. 🔶 **Transações recorrentes** (CRUD completo + materialização; extras avançados parcialmente postergados)
+8. ✅ **Backup & Restore (export/import JSON + validação)**
+9. ✅ **Dashboard** (toggle 6/12m, linha tendência, YTD vs ano anterior, melhor/pior mês)
+10. ✅ **Alertas de orçamento consolidados (painel unificado)**
+11. ✅ **Exportação CSV v2** (tags + separador + marcador transfer + formatação regional números)
+12. ✅ **Filtros avançados Fase 2** (presets modal, resumo compacto com truncamento, AND/ALL tags, incluir/excluir transfers, acessibilidade, testes util)
 13. 🟡 **Metas (Goals)** (postergável para pós 1.0 se necessário)
 14. 🟡 **Anexos** (captura/preview/limpeza órfãos – MVP pós 1.0)
 15. 🟡 **Multi-idioma completo (além pt-BR)**
@@ -129,15 +129,14 @@ Benefício: aceleração de filtros por período/conta/categoria/tipo e cálculo
 ✅ Cache incremental de progresso de orçamentos (tabela budget_progress_cache + invalidação simples por transação)  
 ✅ Recorrências: CRUD completo (criar, editar, desativar, reativar, deletar) + materialização inicial + validações (frequência, intervalo, dias semana, fim opcional) + badge em transações  
 ✅ Backup & Restore: export JSON versionado, compartilhamento, import com overwrite seguro e validação + UI dedicada em Settings  
-🔶 Dashboard: toggle 6/12 meses + resumo textual de linha de tendência (regressão linear simples) integrado (falta visualização gráfica da linha)
+✅ Dashboard: toggle 6/12 meses + linha de tendência sobre gráfico + comparativos YTD vs anterior + melhor/pior mês (média móvel opcional pós 1.0)
 
 ## PENDENTES OBRIGATÓRIOS 1.0
 
-✅ Alertas de orçamento consolidados (painel unificado na tela de Orçamentos)  
-🔶 Filtros avançados Fase 2 (parcial: AND/OR tags, incluir/excluir transferências, reset rápido, presets de intervalo (hoje/semana) e toggle rápido de transferências adicionados)  
-🔶 Invalidação seletiva cache de orçamentos (categoria/período) – fase 2 (parcial: invalidação por transações despesas implementada)
-🔶 Dashboard melhorias: comparativo 6m vs 6m anterior adicionado (restam comparativos adicionais)  
-✅ Export CSV v2: formatação regional números (locale pt-BR, separador decimal conforme) concluída
+✅ Filtros avançados Fase 2 completos (presets modal, resumo, acessibilidade, testes util, truncamento)  
+✅ Invalidação seletiva cache de orçamentos (fase 2 incluindo mudanças de data/categoria)  
+✅ Dashboard melhorias (linha tendência, YTD, melhor/pior mês)  
+✅ Export CSV v2: formatação regional números concluída
 
 ## OPCIONAIS (PÓS 1.0)
 
@@ -252,17 +251,62 @@ return (
 - (Opcional) Goals
 - (Opcional) Anexos
 
+## FOCO RESTANTE PARA 1.0 (Snapshot Objetivo)
+
+Essenciais a concluir antes do corte 1.0 (ordem sugerida):
+
+1. Filtros Avançados Fase 2 – Finalização
+
+- [ ] Polir chips (consistência cores + truncamento seguro)
+- [ ] Acessibility labels (VoiceOver/TalkBack) descrevendo resumo
+- [ ] Teste unitário: função de contagem de filtros ativos / serialização
+- [ ] Extração opcional de `PresetsModal` em componente reutilizável (melhora organização)
+- [ ] Garantir restauração fiel de lastUsedFilters ao abrir app
+
+2. Dashboard – Comparativos & Linha de Tendência Visual
+
+- [ ] Desenhar linha de tendência sobre o gráfico (já temos cálculo; só render overlay consistente)
+- [ ] Comparativo YTD atual vs YTD anterior (receitas, despesas, saldo)
+- [ ] Identificar melhor e pior mês últimos 12m (exibir highlight)
+- [ ] Média móvel 3m opcional (se simples) ou deixar para pós
+
+3. Recorrências (decisão de escopo mínimo para 1.0)
+
+- (Atualmente CRUD + materialização ok) Pendentes se quiser fechar 100%: seleção refinada de contas/categorias via selectors completos, suporte a transferências recorrentes, pausa/retomar granular? (Definir se entra)
+- Se não for obrigatório -> mover restante para pós 1.0.
+
+Classificar agora: Se recortes adicionais de recorrências não são críticos, remover da lista essencial.
+
+Quase concluído / Polimento: 4. Budget Dashboard/Alerts – Painel unificado já presente. Considerar:
+
+- [ ] Badge global (tabs) com número de alertas (acessibilidade)
+- [ ] Limitar contagem >99 → "99+" (opcional)
+
+Opcional antes ou depois (não bloqueia 1.0): 5. Otimização adicional cache budgets (map categoria→budgets ativos) 6. Metas (Goals) 7. Anexos (MVP)
+
 ## PRIORIDADES IMEDIATAS (Atualizadas)
 
-1. ❌ Invalidação seletiva cache budgets (fase 2)
-2. ❌ Alertas de orçamento consolidados (painel unificado)
-3. 🔶 Filtros avançados Fase 2 (restante: chips resumo refinados (compactação + contagens), melhoria UX rename cross-platform – fallback iOS, agrupamento de presets em menu)
-4. 🔶 Export CSV v2: formatação regional de números
-5. 🔶 Dashboard: visualização gráfica da linha de tendência + comparativo 6/12m adicional
-6. 🟡 Goals (opcional pós 1.0)
-7. 🟡 Anexos (MVP)
+1. (Decisão) Escopo final de extras de Recorrências (transferências recorrentes, pausa granular) ou mover pós 1.0
+2. (Opcional) Badge global alertas orçamentos (implementado count +99; acessibilidade label extra opcional)
+3. (Opcional) Otimização extra cache budgets
+4. (Opcional) Média móvel 3m no dashboard
 
-✅ Concluído recentemente: Extração FilterChips + AdvancedFilterModal; Deltas mês atual vs anterior no gráfico; Badge alerta orçamento; Base Recorrências (DAO + engine + materialização inicial + telas lista/form esqueleto)
+✅ Concluído recentemente: Painel consolidado de alertas de orçamento, Presets modal agrupado, fallback rename filtros cross-platform, Export CSV v2 completo, invalidação seletiva expandida (edição data/categoria)
+
+## CHECKLIST DE SAÍDA 1.0 (Go/No-Go)
+
+Use antes do corte para produção TestFlight/internal:
+
+1. [ ] Nenhum crash fluxos principais (transações, orçamento, export CSV)
+2. [ ] Filtros avançados: aplicar / limpar / salvar / renomear OK multiplataforma
+3. [ ] Dashboard: barras + linha tendência + YTD + melhor/pior mês exibidos
+4. [ ] Alertas orçamento: painel consolidado navegável
+5. [ ] Performance aceitável (scroll 60fps em device médio)
+6. [ ] Cache budgets seletivo confirmando invalidação
+7. [ ] Dark mode sem flashes brancos em modais
+8. [ ] Acessibilidade básica validada (labels principais)
+9. [ ] Sem novos warnings TS / logs verbosos (console.log limitado a **DEV**)
+10. [ ] Backup & Restore validado (integridade pós-restore)
 
 ## BACKLOG DE MELHORIAS (Não Essenciais / Agendar Depois)
 

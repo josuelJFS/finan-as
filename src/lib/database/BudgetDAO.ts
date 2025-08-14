@@ -151,12 +151,15 @@ export class BudgetDAO {
 
     query += " ORDER BY b.created_at DESC";
 
-    console.log("BudgetDAO findAll - Query:", query);
-    console.log("BudgetDAO findAll - Params:", params);
+    if (__DEV__) {
+      console.log("[BudgetDAO] findAll query", { query, params });
+    }
 
     const results = await db.getAllAsync<any>(query, params);
 
-    console.log("BudgetDAO findAll - Results:", results);
+    if (__DEV__) {
+      console.log("[BudgetDAO] findAll results count", results.length);
+    }
 
     return results.map((budget) => ({
       ...budget,
@@ -341,11 +344,11 @@ export class BudgetDAO {
   // Método de teste simples
   async testConnection(): Promise<Budget[]> {
     try {
-      console.log("BudgetDAO: Testando conexão...");
+      if (__DEV__) console.log("[BudgetDAO] testConnection start");
       const db = await this.getDb();
 
       const results = await db.getAllAsync<any>("SELECT * FROM budgets LIMIT 5");
-      console.log("BudgetDAO: Teste de conexão bem-sucedido, resultados:", results);
+      if (__DEV__) console.log("[BudgetDAO] testConnection ok", results.length);
 
       return results.map((budget) => ({
         ...budget,
@@ -388,15 +391,27 @@ export class BudgetDAO {
   async invalidateForTransactionChange(prevTx: Transaction | null, nextTx: Transaction | null) {
     try {
       const db = await this.getDb();
-      // Considerar apenas despesas (budget rastreia gastos)
+      // Considerar apenas impactos de despesas (budget rastreia gastos) incluindo mudança de data/categoria
       const relevant: { date: string; category_id: string | null }[] = [];
-      const pushIf = (tx: Transaction | null) => {
+      const collect = (tx: Transaction | null) => {
         if (!tx) return;
         if (tx.type !== "expense") return;
         relevant.push({ date: tx.occurred_at, category_id: tx.category_id || null });
       };
-      pushIf(prevTx);
-      pushIf(nextTx);
+      collect(prevTx);
+      collect(nextTx);
+
+      // Se houve mudança de data (dia) ou categoria entre prev e next (ambos despesa), incluir ambas as combinações
+      if (prevTx && nextTx && prevTx.type === "expense" && nextTx.type === "expense") {
+        const prevDay = prevTx.occurred_at.substring(0, 10);
+        const nextDay = nextTx.occurred_at.substring(0, 10);
+        const prevCat = prevTx.category_id || null;
+        const nextCat = nextTx.category_id || null;
+        if (prevDay !== nextDay || prevCat !== nextCat) {
+          relevant.push({ date: prevTx.occurred_at, category_id: prevCat });
+          relevant.push({ date: nextTx.occurred_at, category_id: nextCat });
+        }
+      }
       if (relevant.length === 0) return;
 
       // Normalizar (remover duplicados)
@@ -410,15 +425,15 @@ export class BudgetDAO {
 
       const affectedBudgetIds = new Set<string>();
       for (const combo of combos) {
-        // Buscar orçamentos ativos que abrangem a data e combinam com categoria (ou sem categoria)
         const date = combo.date;
         const categoryId = combo.category_id;
+        // Buscar orçamentos ativos que abrangem a data e combinam com categoria (ou sem categoria)
         const rows = await db.getAllAsync<any>(
-          `SELECT id, period_start, period_end FROM budgets 
-           WHERE is_active = 1 
-             AND period_start <= ? 
-             AND period_end >= ? 
-             AND (category_id IS NULL OR category_id = ?)`,
+          `SELECT id, period_start, period_end FROM budgets
+             WHERE is_active = 1
+               AND period_start <= ?
+               AND period_end >= ?
+               AND (category_id IS NULL OR category_id = ?)`,
           [date, date, categoryId]
         );
         for (const r of rows) {

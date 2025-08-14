@@ -105,7 +105,7 @@ export default function AccountFormScreen() {
 
     try {
       setLoading(true);
-      console.log("Salvando conta:", { isEdit, accountId: id });
+      if (__DEV__) console.log("[AccountForm] salvando", { isEdit, accountId: id });
 
       if (isEdit && account) {
         // Atualizar conta existente
@@ -117,7 +117,7 @@ export default function AccountFormScreen() {
           is_archived: isArchived,
         };
 
-        console.log("Dados para atualização:", updateData);
+        if (__DEV__) console.log("[AccountForm] update data", updateData);
         await accountDAO.update(account.id, updateData);
         Alert.alert("Sucesso", "Conta atualizada com sucesso");
       } else {
@@ -132,7 +132,7 @@ export default function AccountFormScreen() {
           description: undefined,
         };
 
-        console.log("Dados para criação:", accountData);
+        if (__DEV__) console.log("[AccountForm] create data", accountData);
         await accountDAO.create(accountData);
         Alert.alert("Sucesso", "Conta criada com sucesso");
       }

@@ -316,7 +316,7 @@ export async function materializeDueRecurrences(): Promise<number> {
     }
   }
 
-  if (created > 0) {
+  if (created > 0 && __DEV__) {
     // Eventos já disparados pelo TransactionDAO
     console.log(`[Recurrences] Materializadas ${created} transações recorrentes.`);
   }

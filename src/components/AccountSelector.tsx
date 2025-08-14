@@ -40,16 +40,16 @@ export function AccountSelector({
   const loadAccounts = async () => {
     try {
       setLoading(true);
-      console.log("AccountSelector: Iniciando carregamento de contas...");
+      if (__DEV__) console.log("[AccountSelector] carregando contas");
 
       const allAccounts = await accountDAO.findAll();
-      console.log("AccountSelector: contas carregadas:", allAccounts.length);
+      if (__DEV__) console.log("[AccountSelector] contas carregadas", allAccounts.length);
 
       const filteredAccounts = excludeAccountId
         ? allAccounts.filter((account) => account.id !== excludeAccountId)
         : allAccounts;
 
-      console.log("AccountSelector: contas filtradas:", filteredAccounts.length);
+      if (__DEV__) console.log("[AccountSelector] contas filtradas", filteredAccounts.length);
       setAccounts(filteredAccounts);
     } catch (error) {
       console.error("AccountSelector: Erro ao carregar contas:", error);
@@ -102,7 +102,7 @@ export function AccountSelector({
 
       <TouchableOpacity
         onPress={() => {
-          console.log("AccountSelector: Abrindo modal");
+          if (__DEV__) console.log("[AccountSelector] abrir modal");
           setShowModal(true);
         }}
         className={`flex-row items-center justify-between rounded-lg border bg-gray-100 px-3 py-3 dark:bg-gray-700 ${
@@ -158,14 +158,15 @@ export function AccountSelector({
             <ScrollView
               style={{ maxHeight: 420 }}
               contentContainerStyle={{ paddingBottom: 24 }}
-              onLayout={(e) =>
-                console.log(
-                  "AccountSelector: ScrollView layout height=",
-                  e.nativeEvent.layout.height,
-                  "accounts=",
-                  accounts.length
-                )
-              }
+              onLayout={(e) => {
+                if (__DEV__)
+                  console.log(
+                    "[AccountSelector] layout height=",
+                    e.nativeEvent.layout.height,
+                    "accounts=",
+                    accounts.length
+                  );
+              }}
             >
               {loading ? (
                 <View className="items-center p-8">
@@ -180,7 +181,8 @@ export function AccountSelector({
                     <TouchableOpacity
                       key={account.id}
                       onPress={() => {
-                        console.log("AccountSelector: Conta selecionada:", account.name);
+                        if (__DEV__)
+                          console.log("[AccountSelector] conta selecionada", account.name);
                         onAccountSelect(account);
                         setShowModal(false);
                       }}

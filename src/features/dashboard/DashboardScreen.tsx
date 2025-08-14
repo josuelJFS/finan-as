@@ -47,6 +47,7 @@ export default function DashboardScreen() {
   }, []);
 
   const visible = useMemo(() => trends.slice(-range), [trends, range]);
+  const last12 = useMemo(() => trends.slice(-12), [trends]);
   const trendLine = useMemo(() => {
     const pts = visible.map((t, idx) => ({ x: idx, y: t.balance }));
     return computeTrendLine(pts);
@@ -56,6 +57,53 @@ export default function DashboardScreen() {
   const endBalance = visible[visible.length - 1]?.balance;
   const absoluteDelta = endBalance != null && startBalance != null ? endBalance - startBalance : 0;
   const pctDelta = startBalance ? (absoluteDelta / startBalance) * 100 : 0;
+
+  // YTD comparativos
+  const ytdStats = useMemo(() => {
+    if (trends.length === 0) return null;
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const prevYear = currentYear - 1;
+    const parseYear = (p: string) => parseInt(p.split("-")[0]);
+    const currentYearMonths = trends.filter((t) => parseYear(t.period) === currentYear);
+    const prevYearMonths = trends.filter((t) => parseYear(t.period) === prevYear);
+    const monthsElapsed = new Date().getMonth() + 1; // 1..12
+    const currSlice = currentYearMonths.slice(0, monthsElapsed);
+    const prevSlice = prevYearMonths.slice(0, monthsElapsed);
+    const sum = (arr: typeof currSlice, field: keyof MonthlyTrend) =>
+      arr.reduce((acc, m) => acc + (m[field] as number), 0);
+    const incomeCurr = sum(currSlice, "income");
+    const incomePrev = sum(prevSlice, "income");
+    const expCurr = sum(currSlice, "expenses");
+    const expPrev = sum(prevSlice, "expenses");
+    const balCurr = sum(currSlice, "balance");
+    const balPrev = sum(prevSlice, "balance");
+    const pct = (curr: number, prev: number) => (prev ? ((curr - prev) / prev) * 100 : null);
+    return {
+      incomeCurr,
+      incomePrev,
+      expCurr,
+      expPrev,
+      balCurr,
+      balPrev,
+      incomePct: pct(incomeCurr, incomePrev),
+      expPct: pct(expCurr, expPrev),
+      balPct: pct(balCurr, balPrev),
+      monthsElapsed,
+    };
+  }, [trends]);
+
+  // Melhor / pior mês últimos 12 (por saldo)
+  const bestWorst = useMemo(() => {
+    if (last12.length === 0) return null;
+    let best = last12[0];
+    let worst = last12[0];
+    for (const m of last12) {
+      if (m.balance > best.balance) best = m;
+      if (m.balance < worst.balance) worst = m;
+    }
+    return { best, worst };
+  }, [last12]);
 
   return (
     <ScrollView
@@ -100,7 +148,7 @@ export default function DashboardScreen() {
       )}
       {!loading && !error && visible.length > 0 && (
         <View className="space-y-4">
-          <MonthlyTrendsChart data={trends} months={range} />
+          <MonthlyTrendsChart data={trends} months={range} showTrendLine />
           <View className="rounded-xl bg-white p-4 dark:bg-gray-800">
             <Text className="mb-2 text-base font-semibold text-gray-900 dark:text-white">
               Tendência do Saldo
@@ -119,8 +167,124 @@ export default function DashboardScreen() {
               <Text className="text-xs text-gray-600 dark:text-gray-400">Dados insuficientes.</Text>
             )}
           </View>
+          {ytdStats && (
+            <View className="rounded-xl bg-white p-4 dark:bg-gray-800">
+              <Text className="mb-2 text-base font-semibold text-gray-900 dark:text-white">
+                YTD vs Ano Anterior (meses correntes)
+              </Text>
+              <YtdRow
+                label="Receitas"
+                curr={ytdStats.incomeCurr}
+                prev={ytdStats.incomePrev}
+                pct={ytdStats.incomePct}
+                positiveWhenUp
+              />
+              <YtdRow
+                label="Despesas"
+                curr={ytdStats.expCurr}
+                prev={ytdStats.expPrev}
+                pct={ytdStats.expPct}
+                positiveWhenUp={false}
+              />
+              <YtdRow
+                label="Saldo"
+                curr={ytdStats.balCurr}
+                prev={ytdStats.balPrev}
+                pct={ytdStats.balPct}
+                positiveWhenUp
+              />
+              <Text className="mt-2 text-[10px] text-gray-500 dark:text-gray-400">
+                Considerando {ytdStats.monthsElapsed} meses (jan a mês atual) comparados ao mesmo
+                período do ano anterior.
+              </Text>
+            </View>
+          )}
+          {bestWorst && (
+            <View className="rounded-xl bg-white p-4 dark:bg-gray-800">
+              <Text className="mb-2 text-base font-semibold text-gray-900 dark:text-white">
+                Melhor / Pior Mês (últimos 12)
+              </Text>
+              <View className="flex-row justify-between">
+                <HighlightMonth title="Melhor" month={bestWorst.best} positive />
+                <HighlightMonth title="Pior" month={bestWorst.worst} />
+              </View>
+            </View>
+          )}
         </View>
       )}
     </ScrollView>
   );
 }
+
+const formatNumber = (v: number) => v.toFixed(2);
+
+const YtdRow = ({
+  label,
+  curr,
+  prev,
+  pct,
+  positiveWhenUp,
+}: {
+  label: string;
+  curr: number;
+  prev: number;
+  pct: number | null;
+  positiveWhenUp: boolean;
+}) => {
+  const up = pct != null && pct >= 0;
+  const good = pct == null ? false : positiveWhenUp ? up : !up;
+  const color = good ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400";
+  return (
+    <View className="mb-2 flex-row items-center justify-between">
+      <Text className="text-xs text-gray-600 dark:text-gray-400">{label}</Text>
+      <View className="flex-row items-center gap-2">
+        <Text className="text-xs text-gray-700 dark:text-gray-300">
+          {formatNumber(curr)} / {formatNumber(prev || 0)}
+        </Text>
+        {pct != null && (
+          <Text className={`text-[10px] font-semibold ${color}`}>{pct.toFixed(1)}%</Text>
+        )}
+      </View>
+    </View>
+  );
+};
+
+const HighlightMonth = ({
+  title,
+  month,
+  positive,
+}: {
+  title: string;
+  month: MonthlyTrend;
+  positive?: boolean;
+}) => {
+  const [year, m] = month.period.split("-");
+  const date = new Date(parseInt(year), parseInt(m) - 1, 1);
+  const label = date.toLocaleDateString("pt-BR", { month: "short", year: "2-digit" });
+  return (
+    <View
+      className={`w-[48%] rounded-lg p-3 ${
+        positive ? "bg-green-50 dark:bg-green-900/20" : "bg-red-50 dark:bg-red-900/20"
+      }`}
+    >
+      <Text
+        className={`text-[11px] font-semibold ${
+          positive ? "text-green-700 dark:text-green-300" : "text-red-700 dark:text-red-300"
+        }`}
+      >
+        {title}
+      </Text>
+      <Text className="mt-1 text-xs text-gray-700 dark:text-gray-200">{label}</Text>
+      <Text
+        className={`mt-1 text-sm font-bold ${
+          positive ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
+        }`}
+      >
+        {month.balance.toFixed(2)}
+      </Text>
+      <Text className="mt-1 text-[10px] text-gray-500 dark:text-gray-400">
+        R: {month.income.toFixed(0)} | D: {month.expenses.toFixed(0)}
+      </Text>
+    </View>
+  );
+};

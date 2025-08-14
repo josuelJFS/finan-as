@@ -64,24 +64,25 @@ export function CategorySelector({
   const loadCategories = async () => {
     try {
       setLoading(true);
-      console.log("CategorySelector: Iniciando carregamento de categorias...");
+      if (__DEV__) console.log("[CategorySelector] carregando categorias");
 
       const allCategories = await categoryDAO.findAll();
-      console.log("CategorySelector: categorias carregadas:", allCategories.length);
-      console.log("CategorySelector: categorias:", allCategories);
+      if (__DEV__) console.log("[CategorySelector] categorias carregadas", allCategories.length);
+      if (__DEV__) console.log("[CategorySelector] lista", allCategories);
 
       // Filtrar por tipo de transação se especificado
       const filteredCategories = transactionType
         ? allCategories.filter((category) => category.type === transactionType)
         : allCategories;
 
-      console.log(
-        "CategorySelector: categorias filtradas:",
-        filteredCategories.length,
-        "para tipo:",
-        transactionType
-      );
-      console.log("CategorySelector: categorias filtradas:", filteredCategories);
+      if (__DEV__)
+        console.log(
+          "[CategorySelector] filtradas",
+          filteredCategories.length,
+          "tipo",
+          transactionType
+        );
+      if (__DEV__) console.log("[CategorySelector] categorias filtradas lista", filteredCategories);
       setCategories(filteredCategories);
     } catch (error) {
       console.error("CategorySelector: Erro ao carregar categorias:", error);
@@ -141,7 +142,7 @@ export function CategorySelector({
 
       <TouchableOpacity
         onPress={() => {
-          console.log("CategorySelector: Abrindo modal");
+          if (__DEV__) console.log("[CategorySelector] abrir modal");
           setShowModal(true);
         }}
         className={`flex-row items-center justify-between rounded-lg border bg-gray-100 px-3 py-3 dark:bg-gray-700 ${
@@ -198,14 +199,15 @@ export function CategorySelector({
             <ScrollView
               style={{ maxHeight: 470 }}
               contentContainerStyle={{ paddingBottom: 24 }}
-              onLayout={(e) =>
-                console.log(
-                  "CategorySelector: ScrollView layout height=",
-                  e.nativeEvent.layout.height,
-                  "categories=",
-                  categories.length
-                )
-              }
+              onLayout={(e) => {
+                if (__DEV__)
+                  console.log(
+                    "[CategorySelector] layout height=",
+                    e.nativeEvent.layout.height,
+                    "categories=",
+                    categories.length
+                  );
+              }}
             >
               {loading ? (
                 <View className="items-center p-8">

@@ -16,7 +16,7 @@ export const getDatabase = async (): Promise<SQLite.SQLiteDatabase> => {
   if (openingPromise) return openingPromise;
 
   openingPromise = (async () => {
-    console.log("[DB] Abrindo banco de dados...");
+    if (__DEV__) console.log("[DB] Abrindo banco de dados...");
     const database = await SQLite.openDatabaseAsync(DB_NAME);
     try {
       // Ativar WAL para melhorar concorrência (ignora erro se não suportado)
@@ -26,9 +26,9 @@ export const getDatabase = async (): Promise<SQLite.SQLiteDatabase> => {
       // Ajustar synchronous para reduzir bloqueios de I/O (trade-off aceitável mobile)
       await database.execAsync("PRAGMA synchronous = NORMAL;").catch(() => {});
     } catch {}
-    console.log("[DB] Banco aberto, executando migrations...");
+    if (__DEV__) console.log("[DB] Banco aberto, executando migrations...");
     await runMigrations(database);
-    console.log("[DB] Migrations concluídas.");
+    if (__DEV__) console.log("[DB] Migrations concluídas.");
     db = database;
     return database;
   })();
@@ -41,7 +41,7 @@ const runMigrations = async (database: SQLite.SQLiteDatabase) => {
   const result = await database.getFirstAsync<{ user_version: number }>("PRAGMA user_version");
   const currentVersion = result?.user_version || 0;
 
-  console.log(`Database version: ${currentVersion}, target: ${DB_VERSION}`);
+  if (__DEV__) console.log(`Database version: ${currentVersion}, target: ${DB_VERSION}`);
 
   // Executar migrações necessárias
   if (currentVersion < 1) {
@@ -70,7 +70,7 @@ const runMigrations = async (database: SQLite.SQLiteDatabase) => {
 
 // Migração inicial - Criação das tabelas
 const migration_001_initial_schema = async (db: SQLite.SQLiteDatabase) => {
-  console.log("Running migration 001: Initial schema");
+  if (__DEV__) console.log("Running migration 001: Initial schema");
 
   await db.execAsync(`
     -- Configurações da aplicação
@@ -255,12 +255,12 @@ const migration_001_initial_schema = async (db: SQLite.SQLiteDatabase) => {
       END;
   `);
 
-  console.log("Migration 001 completed");
+  if (__DEV__) console.log("Migration 001 completed");
 };
 
 // Migração 002 - Índices complementares para filtros avançados e performance
 const migration_002_add_indexes = async (db: SQLite.SQLiteDatabase): Promise<boolean> => {
-  console.log("Running migration 002: Additional indexes");
+  if (__DEV__) console.log("Running migration 002: Additional indexes");
   const statements = [
     `CREATE INDEX IF NOT EXISTS idx_transactions_destination_account_id ON transactions (destination_account_id);`,
     `CREATE INDEX IF NOT EXISTS idx_transactions_account_type_date ON transactions (account_id, type, occurred_at);`,
@@ -283,7 +283,7 @@ const migration_002_add_indexes = async (db: SQLite.SQLiteDatabase): Promise<boo
       "idx_budgets_period",
       "idx_budgets_category_period",
     ]);
-    console.log("Migration 002 completed (sincrona)");
+    if (__DEV__) console.log("Migration 002 completed (sincrona)");
   }
   return allOk;
 };
@@ -305,7 +305,8 @@ async function runWithRetry(
       } else {
         await db.execAsync(statement);
       }
-      console.log(`[DB][migration] OK '${statement.slice(0, 60)}' (attempt ${attempt + 1})`);
+      if (__DEV__)
+        console.log(`[DB][migration] OK '${statement.slice(0, 60)}' (attempt ${attempt + 1})`);
       return true; // sucesso
     } catch (err: any) {
       // Tentar rollback se transação aberta
@@ -360,7 +361,7 @@ function ensureIndexesInBackground(db: SQLite.SQLiteDatabase, attempts: number =
   let attempt = 0;
   const tick = async () => {
     attempt++;
-    console.log(`[DB][bg] tentativa índices ${attempt}/${attempts}`);
+    if (__DEV__) console.log(`[DB][bg] tentativa índices ${attempt}/${attempts}`);
     let okAll = true;
     for (const n of names) {
       const stmt =
@@ -377,7 +378,7 @@ function ensureIndexesInBackground(db: SQLite.SQLiteDatabase, attempts: number =
     } else if (!okAll) {
       console.warn("[DB][bg] índices não criados após tentativas (seguir sem eles)");
     } else {
-      console.log("[DB][bg] índices garantidos");
+      if (__DEV__) console.log("[DB][bg] índices garantidos");
     }
   };
   setTimeout(tick, 700);
@@ -385,7 +386,7 @@ function ensureIndexesInBackground(db: SQLite.SQLiteDatabase, attempts: number =
 
 // Migração 003 - Cache incremental de progresso de orçamentos
 async function migration_003_budget_progress_cache(db: SQLite.SQLiteDatabase) {
-  console.log("Running migration 003: Budget progress cache");
+  if (__DEV__) console.log("Running migration 003: Budget progress cache");
   await db.execAsync(`
     CREATE TABLE IF NOT EXISTS budget_progress_cache (
       budget_id TEXT NOT NULL,
@@ -398,5 +399,5 @@ async function migration_003_budget_progress_cache(db: SQLite.SQLiteDatabase) {
     );
     CREATE INDEX IF NOT EXISTS idx_budget_progress_range ON budget_progress_cache (period_start, period_end);
   `);
-  console.log("Migration 003 completed");
+  if (__DEV__) console.log("Migration 003 completed");
 }

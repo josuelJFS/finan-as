@@ -1,12 +1,12 @@
 import * as SQLite from "expo-sqlite";
 
 export const seedDatabase = async (db: SQLite.SQLiteDatabase) => {
-  console.log("Starting database seeding...");
+  if (__DEV__) console.log("Starting database seeding...");
 
   // Verificar se já foi feito o seed
   const existingSettings = await db.getFirstAsync('SELECT id FROM settings WHERE id = "default"');
   if (existingSettings) {
-    console.log("Database already seeded");
+    if (__DEV__) console.log("Database already seeded");
     return;
   }
 
@@ -22,7 +22,7 @@ export const seedDatabase = async (db: SQLite.SQLiteDatabase) => {
   // Inserir orçamentos exemplo
   await seedBudgets(db);
 
-  console.log("Database seeding completed");
+  if (__DEV__) console.log("Database seeding completed");
 };
 
 const seedSettings = async (db: SQLite.SQLiteDatabase) => {
@@ -144,7 +144,7 @@ const seedAccounts = async (db: SQLite.SQLiteDatabase) => {
 };
 
 const seedBudgets = async (db: SQLite.SQLiteDatabase) => {
-  console.log("Iniciando seed de orçamentos...");
+  if (__DEV__) console.log("Iniciando seed de orçamentos...");
 
   // Pegar algumas categorias de exemplo
   const alimentacao = await db.getFirstAsync<{ id: string }>(
@@ -154,7 +154,7 @@ const seedBudgets = async (db: SQLite.SQLiteDatabase) => {
     'SELECT id FROM categories WHERE name = "Transporte" AND parent_id IS NULL'
   );
 
-  console.log("Categorias encontradas:", { alimentacao, transporte });
+  if (__DEV__) console.log("Categorias encontradas:", { alimentacao, transporte });
 
   const now = new Date();
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 19);
@@ -162,7 +162,7 @@ const seedBudgets = async (db: SQLite.SQLiteDatabase) => {
     .toISOString()
     .slice(0, 19);
 
-  console.log("Período:", { startOfMonth, endOfMonth });
+  if (__DEV__) console.log("Período:", { startOfMonth, endOfMonth });
 
   const budgets = [
     {
@@ -198,7 +198,7 @@ const seedBudgets = async (db: SQLite.SQLiteDatabase) => {
   ];
 
   for (const b of budgets) {
-    console.log("Inserindo orçamento:", b);
+    if (__DEV__) console.log("Inserindo orçamento:", b);
     await db.runAsync(
       `INSERT INTO budgets (name, category_id, amount, period_type, period_start, period_end, alert_percentage, is_active)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -215,5 +215,5 @@ const seedBudgets = async (db: SQLite.SQLiteDatabase) => {
     );
   }
 
-  console.log("Seed de orçamentos concluído!");
+  if (__DEV__) console.log("Seed de orçamentos concluído!");
 };
