@@ -5,22 +5,32 @@ export const DB_VERSION = 1;
 export const DB_NAME = "appfinanca.db";
 
 let db: SQLite.SQLiteDatabase | null = null;
+// Promessa de abertura em andamento para evitar condições de corrida
+let openingPromise: Promise<SQLite.SQLiteDatabase> | null = null;
 
 export const getDatabase = async (): Promise<SQLite.SQLiteDatabase> => {
-  if (db) {
-    return db;
-  }
+  // Retorna instância já pronta
+  if (db) return db;
 
-  db = await SQLite.openDatabaseAsync(DB_NAME);
-  await runMigrations(db);
-  return db;
+  // Se já há uma abertura em andamento, reutiliza a promessa
+  if (openingPromise) return openingPromise;
+
+  openingPromise = (async () => {
+    console.log("[DB] Abrindo banco de dados...");
+    const database = await SQLite.openDatabaseAsync(DB_NAME);
+    console.log("[DB] Banco aberto, executando migrations...");
+    await runMigrations(database);
+    console.log("[DB] Migrations concluídas.");
+    db = database;
+    return database;
+  })();
+
+  return openingPromise;
 };
 
 const runMigrations = async (database: SQLite.SQLiteDatabase) => {
   // Verificar versão atual
-  const result = await database.getFirstAsync<{ user_version: number }>(
-    "PRAGMA user_version"
-  );
+  const result = await database.getFirstAsync<{ user_version: number }>("PRAGMA user_version");
   const currentVersion = result?.user_version || 0;
 
   console.log(`Database version: ${currentVersion}, target: ${DB_VERSION}`);

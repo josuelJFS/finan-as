@@ -4,9 +4,7 @@ export const seedDatabase = async (db: SQLite.SQLiteDatabase) => {
   console.log("Starting database seeding...");
 
   // Verificar se já foi feito o seed
-  const existingSettings = await db.getFirstAsync(
-    'SELECT id FROM settings WHERE id = "default"'
-  );
+  const existingSettings = await db.getFirstAsync('SELECT id FROM settings WHERE id = "default"');
   if (existingSettings) {
     console.log("Database already seeded");
     return;
@@ -20,6 +18,9 @@ export const seedDatabase = async (db: SQLite.SQLiteDatabase) => {
 
   // Inserir conta padrão
   await seedAccounts(db);
+
+  // Inserir orçamentos exemplo
+  await seedBudgets(db);
 
   console.log("Database seeding completed");
 };
@@ -140,4 +141,79 @@ const seedAccounts = async (db: SQLite.SQLiteDatabase) => {
     INSERT INTO accounts (name, type, initial_balance, current_balance, icon, color)
     VALUES ('Conta Corrente', 'checking', 0, 0, 'card', '#3b82f6')
   `);
+};
+
+const seedBudgets = async (db: SQLite.SQLiteDatabase) => {
+  console.log("Iniciando seed de orçamentos...");
+
+  // Pegar algumas categorias de exemplo
+  const alimentacao = await db.getFirstAsync<{ id: string }>(
+    'SELECT id FROM categories WHERE name = "Alimentação" AND parent_id IS NULL'
+  );
+  const transporte = await db.getFirstAsync<{ id: string }>(
+    'SELECT id FROM categories WHERE name = "Transporte" AND parent_id IS NULL'
+  );
+
+  console.log("Categorias encontradas:", { alimentacao, transporte });
+
+  const now = new Date();
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 19);
+  const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59)
+    .toISOString()
+    .slice(0, 19);
+
+  console.log("Período:", { startOfMonth, endOfMonth });
+
+  const budgets = [
+    {
+      name: "Alimentação Mensal",
+      category_id: alimentacao?.id || null,
+      amount: 1500,
+      period_type: "monthly",
+      period_start: startOfMonth,
+      period_end: endOfMonth,
+      alert_percentage: 80,
+      is_active: 1,
+    },
+    {
+      name: "Transporte Mensal",
+      category_id: transporte?.id || null,
+      amount: 600,
+      period_type: "monthly",
+      period_start: startOfMonth,
+      period_end: endOfMonth,
+      alert_percentage: 80,
+      is_active: 1,
+    },
+    {
+      name: "Gastos Gerais",
+      category_id: null,
+      amount: 3000,
+      period_type: "monthly",
+      period_start: startOfMonth,
+      period_end: endOfMonth,
+      alert_percentage: 85,
+      is_active: 1,
+    },
+  ];
+
+  for (const b of budgets) {
+    console.log("Inserindo orçamento:", b);
+    await db.runAsync(
+      `INSERT INTO budgets (name, category_id, amount, period_type, period_start, period_end, alert_percentage, is_active)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        b.name,
+        b.category_id,
+        b.amount,
+        b.period_type,
+        b.period_start,
+        b.period_end,
+        b.alert_percentage,
+        b.is_active,
+      ]
+    );
+  }
+
+  console.log("Seed de orçamentos concluído!");
 };

@@ -1,8 +1,9 @@
-import { View, Text, ScrollView, TouchableOpacity } from "react-native";
+import { View, Text, ScrollView, TouchableOpacity, RefreshControl } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useState } from "react";
-import { useRouter } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
+import { useCallback } from "react";
 import { AccountDAO, TransactionDAO } from "../../src/lib/database";
 import { formatCurrency } from "../../src/lib/utils";
 import type { Account, BalanceSummary } from "../../src/types/entities";
@@ -12,6 +13,7 @@ export default function DashboardScreen() {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [balanceSummary, setBalanceSummary] = useState<BalanceSummary | null>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   const accountDAO = AccountDAO.getInstance();
   const transactionDAO = TransactionDAO.getInstance();
@@ -19,6 +21,18 @@ export default function DashboardScreen() {
   useEffect(() => {
     loadDashboardData();
   }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadDashboardData();
+    }, [])
+  );
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadDashboardData();
+    setRefreshing(false);
+  };
 
   const loadDashboardData = async () => {
     try {
@@ -86,7 +100,10 @@ export default function DashboardScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-gray-50 dark:bg-gray-900">
-      <ScrollView className="flex-1">
+      <ScrollView
+        className="flex-1"
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+      >
         {/* Header */}
         <View className="border-b border-gray-200 bg-white px-6 py-4 dark:border-gray-700 dark:bg-gray-800">
           <Text className="text-2xl font-bold text-gray-900 dark:text-white">Dashboard</Text>
@@ -198,17 +215,26 @@ export default function DashboardScreen() {
           </Text>
 
           <View className="flex-row justify-between">
-            <TouchableOpacity className="mr-2 flex-1 items-center rounded-lg bg-green-500 p-4">
+            <TouchableOpacity
+              className="mr-2 flex-1 items-center rounded-lg bg-green-500 p-4"
+              onPress={() => router.push("/transactions/create?type=income")}
+            >
               <Ionicons name="add" size={24} color="white" />
               <Text className="mt-2 font-medium text-white">Receita</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity className="mx-2 flex-1 items-center rounded-lg bg-red-500 p-4">
+            <TouchableOpacity
+              className="mx-2 flex-1 items-center rounded-lg bg-red-500 p-4"
+              onPress={() => router.push("/transactions/create?type=expense")}
+            >
               <Ionicons name="remove" size={24} color="white" />
               <Text className="mt-2 font-medium text-white">Despesa</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity className="ml-2 flex-1 items-center rounded-lg bg-blue-500 p-4">
+            <TouchableOpacity
+              className="ml-2 flex-1 items-center rounded-lg bg-blue-500 p-4"
+              onPress={() => router.push("/transactions/create?type=transfer")}
+            >
               <Ionicons name="swap-horizontal" size={24} color="white" />
               <Text className="mt-2 font-medium text-white">Transferir</Text>
             </TouchableOpacity>

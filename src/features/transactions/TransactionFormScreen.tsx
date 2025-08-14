@@ -29,11 +29,12 @@ interface FormErrors {
 export default function TransactionFormScreen() {
   const params = useLocalSearchParams();
   const transactionId = params.id as string;
+  const typeParam = params.type as TransactionType;
   const isEditing = !!transactionId;
   const insets = useSafeAreaInsets();
 
   const [formData, setFormData] = useState<TransactionFormData>({
-    type: "expense",
+    type: typeParam || "expense",
     account_id: "",
     destination_account_id: "",
     category_id: "",

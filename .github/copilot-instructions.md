@@ -13,6 +13,51 @@
 
 # AppFinança - Personal Finance App
 
+## MANIFESTO DE DESIGN & UX (Adicionar em toda nova feature)
+
+Objetivo: cada tela deve ser clara em 5s, executável em até 3 toques para a ação principal e consistente em todos os estados (loading, vazio, erro, sucesso).
+
+Princípios obrigatórios:
+
+- Consistência visual: seguir tipografia, espaçamentos (múltiplos de 4 — preferir 4/8/12/16/24), cores e padrões já definidos.
+- Hierarquia clara: 1 ação primária por tela (botão destacado), secundárias em menor ênfase, destrutivas em vermelho.
+- Feedback imediato: toda ação que leva >150ms deve ter indicador (spinner, skeleton, shimmer) e estado desabilitado claro.
+- Estados completos: implementar para cada lista/form: loading, vazio (mensagem + CTA), erro (retry), conteúdo.
+- Acessibilidade: toques mínimos 44x44dp, contraste AA, labels descritivos, ícones não semânticos sempre com texto.
+- Dark mode: paridade funcional e contraste revisado (não usar puro #000 em superfícies elevadas; usar tons neutros da paleta).
+- Microinterações leves: evitar animações longas (>300ms); transições suaves em modais e feedback de toque.
+- Redução de fricção: inputs pré-preenchidos quando possível (datas, contas padrão, último filtro usado).
+- Previsibilidade: nada “pula” após load tardio; reservar espaço (layout shift zero) usando skeletons.
+
+Checklist rápido antes de finalizar uma tela/componente:
+
+1. Loading visível e não bloqueante? (Skeleton > Spinner isolado quando houver estrutura previsível)
+2. Estado vazio educativo com CTA direto?
+3. Erro recuperável com botão Tentar Novamente?
+4. Ação principal claramente destacada?
+5. Campos alinhados e espaçamentos consistentes (grid de 4)?
+6. Toque confortável (≥44dp) e texto legível (≥14sp)?
+7. Dark mode revisado manualmente?
+8. Sem over-scroll branco/flash em dark? (usar cores de fundo corretas)
+9. Logs de debug removidos ou reduzidos a warnings essenciais?
+10. Performance: listas virtualizadas e sem renders desnecessários (memo/useCallback onde faz sentido)?
+
+Padrões visuais resumidos:
+
+- Espaçamento vertical entre blocos: 16
+- Espaçamento interno de cartões: 16
+- Gap entre inputs consecutivos: 12
+- Raio padrão: 8 (botões, cartões) / 12 (modais top-sheet)
+- Ícones: 20 (inline), 24 (botão), 32–40 (avatar/círculo)
+
+Evitar:
+
+- Texto cinza claro demais em dark (#6b7280 ok; evitar < #4b5563 em body).
+- Excesso de cores na mesma tela (máx 1 primária + estados semânticos).
+- Placeholder como label (usar label sempre que input persistir valor).
+
+Sempre que criar/alterar componente, validar com este manifesto antes do commit.
+
 ## ESPECIFICAÇÕES COMPLETAS DO PROJETO
 
 Aplicativo de finanças pessoais, offline-first, usando Expo (React Native + TypeScript) com NativeWind para UI e SQLite para armazenamento local. O app deve ser rápido, acessível, fácil de usar, com foco em registrar despesas/receitas, orçamentos e relatórios.
@@ -148,20 +193,23 @@ return (
 
 ## DESENVOLVIMENTO ATUAL
 
-### ✅ CONCLUÍDO (Passo 0-3)
+### ✅ CONCLUÍDO (Passo 0-4)
 
 - Setup do projeto com Expo + TypeScript
 - Configuração do NativeWind
 - Infra de banco com migrations e DAOs
 - Navegação e layout base (tabs)
 - Telas básicas com className
-- CRUD de contas completo (UI + lógica)
+- CRUD de contas completo (UI + lógica) ✅ BUG CORRIGIDO
 - CRUD de categorias completo (UI + lógica hierárquica)
 - CRUD de transações completo (receitas, despesas, transferências)
+- Componentes reutilizáveis: MoneyInput, DatePicker, AccountSelector, CategorySelector
+- Padrão de botões em formulários documentado e implementado
 
 ### ⚠️ EM PROGRESSO (Passo 5)
 
-- Dashboard com gráficos e KPIs (próximo)
+- Lógica de saldos em tempo real (próximo)
+- Dashboard com gráficos e KPIs
 
 ### ❌ PENDENTE (Passo 5-9)
 
@@ -174,13 +222,13 @@ return (
 
 ## PRIORIDADES IMEDIATAS
 
-1. **🐛 CORRIGIR BUG URGENTE**:
-   - ❌ AccountFormScreen: erro NOT NULL constraint failed: accounts.icon ao salvar conta
-   - ❌ Verificar se tipo/ícone está sendo enviado corretamente
-   - ❌ Debug logs adicionados - testar no app
+1. **✅ CORRIGIDO - Bug AccountForm**:
+   - ✅ AccountFormScreen: corrigido erro NOT NULL constraint failed: accounts.icon
+   - ✅ Função getIconForType() implementada para garantir ícone baseado no tipo
+   - ✅ Dados de criação/atualização sempre com ícone válido
 
 2. **Criar telas de CRUD**:
-   - ✅ `/accounts` - Lista e criação de contas (COM BUG)
+   - ✅ `/accounts` - Lista e criação de contas (CORRIGIDO)
    - ✅ `/categories` - Lista e criação de categorias
    - ✅ `/transactions` - CRUD completo de transações
    - ❌ Dashboard com gráficos e estatísticas
@@ -204,6 +252,9 @@ return (
 - **Feature-first structure** - organização por funcionalidade
 - **Acessibilidade** - todos os componentes com labels adequados
 - **Performance** - usar React.memo, useCallback quando necessário
+- **UX Consistente** - aplicar o Manifesto de Design & UX: estados (loading/vazio/erro), ação primária clara, spacing padronizado, dark mode testado
+- **Feedback Imediato** - qualquer operação assíncrona >150ms deve sinalizar progresso
+- **Estados Vazios Educativos** - sempre incluir mensagem + CTA para criar conteúdo
 
 ## ESTRUTURA DE ARQUIVOS ATUAL
 

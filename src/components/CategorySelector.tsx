@@ -30,12 +30,35 @@ export function CategorySelector({
   const categoryDAO = CategoryDAO.getInstance();
 
   useEffect(() => {
-    // Adicionar um pequeno delay para garantir que o banco foi inicializado
-    const timer = setTimeout(() => {
-      loadCategories();
-    }, 100);
+    let isMounted = true;
 
-    return () => clearTimeout(timer);
+    const attemptLoad = async (attempt = 1) => {
+      if (!isMounted) return;
+      try {
+        await loadCategories();
+      } catch (err) {
+        // Se for erro de prepareAsync / NPE, tentar novamente algumas vezes
+        const message = String(err);
+        const transient = /prepareAsync|NullPointerException/i.test(message);
+        if (transient && attempt < 5) {
+          const delay = 100 * attempt; // backoff linear simples
+          console.warn(
+            `CategorySelector: tentativa ${attempt} falhou (transient). Retentando em ${delay}ms...`
+          );
+          setTimeout(() => attemptLoad(attempt + 1), delay);
+        } else if (transient) {
+          console.error(
+            "CategorySelector: falha após múltiplas tentativas ao carregar categorias",
+            err
+          );
+        }
+      }
+    };
+
+    attemptLoad();
+    return () => {
+      isMounted = false;
+    };
   }, [transactionType]);
 
   const loadCategories = async () => {
@@ -62,6 +85,7 @@ export function CategorySelector({
       setCategories(filteredCategories);
     } catch (error) {
       console.error("CategorySelector: Erro ao carregar categorias:", error);
+      throw error; // propaga para mecanismo de retry
     } finally {
       setLoading(false);
     }

@@ -4,16 +4,9 @@ export { seedDatabase } from "./seed";
 
 // DAOs
 export { AccountDAO } from "./AccountDAO";
-export {
-  CategoryDAO,
-  type CategoryHierarchy,
-  type CategoryUsageStats,
-} from "./CategoryDAO";
-export {
-  TransactionDAO,
-  type MonthlyTrend,
-  type CategorySummary,
-} from "./TransactionDAO";
+export { BudgetDAO } from "./BudgetDAO";
+export { CategoryDAO, type CategoryHierarchy, type CategoryUsageStats } from "./CategoryDAO";
+export { TransactionDAO, type MonthlyTrend, type CategorySummary } from "./TransactionDAO";
 
 // Database initialization helper
 export const initializeDatabase = async (): Promise<void> => {
