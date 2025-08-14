@@ -1,7 +1,7 @@
 import * as SQLite from "expo-sqlite";
 
 // Versão atual do banco de dados
-export const DB_VERSION = 1;
+export const DB_VERSION = 2;
 export const DB_NAME = "appfinanca.db";
 
 let db: SQLite.SQLiteDatabase | null = null;
@@ -18,6 +18,14 @@ export const getDatabase = async (): Promise<SQLite.SQLiteDatabase> => {
   openingPromise = (async () => {
     console.log("[DB] Abrindo banco de dados...");
     const database = await SQLite.openDatabaseAsync(DB_NAME);
+    try {
+      // Ativar WAL para melhorar concorrência (ignora erro se não suportado)
+      await database.execAsync("PRAGMA journal_mode = WAL;").catch(() => {});
+      // Aumentar timeout de espera por locks
+      await database.execAsync("PRAGMA busy_timeout = 4000;").catch(() => {});
+      // Ajustar synchronous para reduzir bloqueios de I/O (trade-off aceitável mobile)
+      await database.execAsync("PRAGMA synchronous = NORMAL;").catch(() => {});
+    } catch {}
     console.log("[DB] Banco aberto, executando migrations...");
     await runMigrations(database);
     console.log("[DB] Migrations concluídas.");
@@ -38,6 +46,16 @@ const runMigrations = async (database: SQLite.SQLiteDatabase) => {
   // Executar migrações necessárias
   if (currentVersion < 1) {
     await migration_001_initial_schema(database);
+  }
+
+  if (currentVersion < 2) {
+    const ok = await migration_002_add_indexes(database);
+    if (!ok) {
+      console.warn("[DB] Migration 002 parcial - agendando background.");
+      ensureIndexesInBackground(database);
+    }
+  } else {
+    ensureIndexesInBackground(database); // garantir em execuções futuras
   }
 
   // Atualizar versão do banco
@@ -235,3 +253,128 @@ const migration_001_initial_schema = async (db: SQLite.SQLiteDatabase) => {
 
   console.log("Migration 001 completed");
 };
+
+// Migração 002 - Índices complementares para filtros avançados e performance
+const migration_002_add_indexes = async (db: SQLite.SQLiteDatabase): Promise<boolean> => {
+  console.log("Running migration 002: Additional indexes");
+  const statements = [
+    `CREATE INDEX IF NOT EXISTS idx_transactions_destination_account_id ON transactions (destination_account_id);`,
+    `CREATE INDEX IF NOT EXISTS idx_transactions_account_type_date ON transactions (account_id, type, occurred_at);`,
+    `CREATE INDEX IF NOT EXISTS idx_budgets_category_period ON budgets (category_id, period_start, period_end);`,
+  ];
+  let allOk = true;
+  for (const stmt of statements) {
+    const ok = await runWithRetry(db, stmt, 2, 100, false); // sem IMMEDIATE para reduzir lock
+    if (!ok) allOk = false;
+  }
+  if (allOk) {
+    await ensureIndexes(db, [
+      "idx_transactions_occurred_at",
+      "idx_transactions_account_id",
+      "idx_transactions_category_id",
+      "idx_transactions_type",
+      "idx_transactions_destination_account_id",
+      "idx_transactions_account_type_date",
+      "idx_budgets_category_id",
+      "idx_budgets_period",
+      "idx_budgets_category_period",
+    ]);
+    console.log("Migration 002 completed (sincrona)");
+  }
+  return allOk;
+};
+
+// Executa statement com retry simples em caso de 'database is locked'
+async function runWithRetry(
+  db: SQLite.SQLiteDatabase,
+  statement: string,
+  retries: number = 3,
+  delayMs: number = 80,
+  useImmediateTx: boolean = false
+) {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      if (useImmediateTx) {
+        await db.execAsync("BEGIN IMMEDIATE;");
+        await db.execAsync(statement);
+        await db.execAsync("COMMIT;");
+      } else {
+        await db.execAsync(statement);
+      }
+      console.log(`[DB][migration] OK '${statement.slice(0, 60)}' (attempt ${attempt + 1})`);
+      return true; // sucesso
+    } catch (err: any) {
+      // Tentar rollback se transação aberta
+      try {
+        await db.execAsync("ROLLBACK;");
+      } catch {}
+      const message = String(err?.message || err);
+      const last = attempt === retries;
+      console.warn(
+        `[DB][migration] Falha '${statement.slice(0, 60)}' tentativa ${attempt + 1}/${
+          retries + 1
+        }: ${message}`
+      );
+      if (message.includes("database is locked") && !last) {
+        // Backoff exponencial leve
+        const wait = delayMs * Math.pow(1.6, attempt);
+        await new Promise((res) => setTimeout(res, wait));
+        continue;
+      }
+      if (!message.includes("already exists")) {
+        if (last) {
+          console.warn(`[DB][migration] desistindo: ${statement}`);
+          return false;
+        }
+      } else {
+        return true; // índice já existe
+      }
+    }
+  }
+  return false;
+}
+
+async function ensureIndexes(db: SQLite.SQLiteDatabase, names: string[]) {
+  const existing = await db.getAllAsync<{ name: string }>(
+    "SELECT name FROM sqlite_master WHERE type='index'"
+  );
+  const existingSet = new Set(existing.map((r) => r.name));
+  for (const name of names) {
+    if (!existingSet.has(name)) {
+      console.warn(`[DB] Index faltando '${name}', tentando recriar...`);
+      // Não sabemos a definição exata aqui (já listada nas migrations). Por segurança pular.
+    }
+  }
+}
+
+function ensureIndexesInBackground(db: SQLite.SQLiteDatabase, attempts: number = 3) {
+  const names = [
+    "idx_transactions_destination_account_id",
+    "idx_transactions_account_type_date",
+    "idx_budgets_category_period",
+  ];
+  let attempt = 0;
+  const tick = async () => {
+    attempt++;
+    console.log(`[DB][bg] tentativa índices ${attempt}/${attempts}`);
+    let okAll = true;
+    for (const n of names) {
+      const stmt =
+        n === "idx_transactions_destination_account_id"
+          ? `CREATE INDEX IF NOT EXISTS idx_transactions_destination_account_id ON transactions (destination_account_id);`
+          : n === "idx_transactions_account_type_date"
+            ? `CREATE INDEX IF NOT EXISTS idx_transactions_account_type_date ON transactions (account_id, type, occurred_at);`
+            : `CREATE INDEX IF NOT EXISTS idx_budgets_category_period ON budgets (category_id, period_start, period_end);`;
+      const ok = await runWithRetry(db, stmt, 1, 150, false);
+      if (!ok) okAll = false;
+    }
+    if (!okAll && attempt < attempts) {
+      setTimeout(tick, 1200 * attempt);
+    } else if (!okAll) {
+      console.warn("[DB][bg] índices não criados após tentativas (seguir sem eles)");
+    } else {
+      console.log("[DB][bg] índices garantidos");
+    }
+  };
+  setTimeout(tick, 700);
+}

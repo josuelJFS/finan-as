@@ -1,15 +1,5 @@
-<!-- Use this file to provide workspace-specific custom instructions to Copilot. For more details, visit https://c2. **Implementar componentes**:
-   - ✅ MoneyInput para valores
-   - ✅ DatePicker para datas
-   - ✅ CategorySelector
-   - ✅ AccountSelector
-
-3. **Funcionalidade core**:
-   - ✅ Pull-to-refresh em listas
-   - ✅ Atualização automática quando volta para a tela
-   - ❌ Criar transação com atualização de saldo
-   - ❌ Cálculo de saldos em tempo real
-   - ❌ Filtros funcionaisstudio.com/docs/copilot/copilot-customization#_use-a-githubcopilotinstructionsmd-file -->
+<!-- Instruções específicas do projeto para orientar desenvolvimento e AI assistants.
+Mantido atualizado: Agosto 2025. -->
 
 # AppFinança - Personal Finance App
 
@@ -75,32 +65,39 @@ Aplicativo de finanças pessoais, offline-first, usando Expo (React Native + Typ
 - ⚠️ i18n: pt-BR por padrão, pronto para multi-idioma
 - ⚠️ Performance: listas virtualizadas, memoização, índices no SQLite
 
-## FUNCIONALIDADES OBRIGATÓRIAS
+## FUNCIONALIDADES OBRIGATÓRIAS (Snapshot)
 
-1. ⚠️ **Onboarding**: simples com moeda padrão, conta inicial e tema (BÁSICO IMPLEMENTADO)
-2. ✅ **CRUD de contas**: saldo inicial, tipos diferentes e saldo total (CONCLUÍDO + PULL-TO-REFRESH)
-3. ✅ **CRUD de categorias**: hierárquicas (despesa/receita) (CONCLUÍDO + PULL-TO-REFRESH)
-4. ✅ **CRUD de transações**: tipo, conta, valor, data/hora, categoria, notas, tags, anexos (CONCLUÍDO)
-5. ⚠️ **Busca e filtros**: com opção de salvar filtros (BÁSICO IMPLEMENTADO)
-6. ✅ **Orçamentos**: CRUD completo (criar, editar, excluir) + progresso básico e alerta visual (refinar cálculo e alertas globais pendente)
-7. ❌ **Metas**: cálculo de progresso (NÃO IMPLEMENTADO)
-8. ❌ **Transações recorrentes**: regras e materialização automática (NÃO IMPLEMENTADO)
-9. ⚠️ **Dashboard**: saldo total, entradas/saídas, gráficos (BÁSICO IMPLEMENTADO)
-10. ❌ **Anexos**: fotos de comprovantes com visualização (NÃO IMPLEMENTADO)
-11. ❌ **Backup/restore**: JSON/CSV com validação de schema (NÃO IMPLEMENTADO)
+1. ⚠️ **Onboarding**: básico (moeda, tema, conta) – falta refinamento de preferências adicionais
+2. ✅ **CRUD de contas**: saldo inicial, tipos, saldo total, pull-to-refresh
+3. ✅ **CRUD de categorias**: hierarquia + tipos, pull-to-refresh
+4. ✅ **CRUD de transações**: despesas, receitas, transferências (atomic balance update) + notas + tags (UI básica) (anexos ainda não)
+5. ✅ **Busca e filtros básicos**: período (chips), tipo (toggles), contas (multi-select), persistência lastUsed + filtros salvos (criar/aplicar/remover) – (filtros avançados pendentes)
+6. ✅ **Orçamentos (Budgets)**: CRUD + progresso + alertas básicos (otimização/cache & alertas globais avançados pendentes)
+7. ❌ **Metas (Goals)**: não iniciado
+8. ❌ **Transações recorrentes**: não iniciado (engine + materialização idempotente)
+9. ⚠️ **Dashboard**: KPIs básicos + badge de filtros ativos + alertas de orçamento iniciais (gráficos comparativos/trends pendentes)
+10. ❌ **Anexos**: captura/visualização
+11. ❌ **Backup/restore**: export/import JSON + validação
+12. ✅ **Exportação CSV**: transações filtradas + compartilhamento (melhorias: incluir tags, formatação regional de números, opção separar transferências)
 
 ## MODELAGEM DE DADOS (SQLite)
 
-✅ **Tabelas implementadas**: settings, accounts, categories, transactions, budgets, goals, recurrences
+✅ **Tabelas**: settings, accounts, categories, transactions, budgets, goals, recurrences
 
-- ✅ **settings**: moeda, tema, datas
-- ✅ **accounts**: nome, tipo, saldo inicial, arquivada
-- ✅ **categories**: nome, pai, tipo
-- ✅ **transactions**: tipo, conta, conta destino, categoria, valor, data, nota, tags, anexo, recorrência
-- ✅ **budgets**: categoria, período, valor
-- ✅ **goals**: nome, valor alvo, data limite, valor alocado
-- ✅ **recurrences**: template de transação, frequência, próxima execução
-- ❌ **Índices**: em occurred_at e category_id (FALTANDO)
+- settings (moeda, tema, datas)
+- accounts (nome, tipo, saldo_inicial, arquivada)
+- categories (nome, parent_id, tipo)
+- transactions (tipo, account_id, to_account_id, category_id, amount, occurred_at, note, tags, attachment, recurrence_id)
+- budgets (category_id, period_key, amount)
+- goals (nome, target_amount, deadline, allocated_amount)
+- recurrences (template_json, frequency, next_run_at)
+
+⚠️ **Índices**:
+
+- (001) Criados: transactions(occurred_at), transactions(account_id), transactions(category_id), transactions(type), categories(parent_id), categories(type), budgets(category_id), budgets(period_start, period_end)
+- (002) Adicionados: transactions(destination_account_id), transactions(account_id, type, occurred_at), budgets(category_id, period_start, period_end)
+
+Benefício: aceleração de filtros por período/conta/categoria/tipo e cálculos agregados de orçamentos.
 
 ## TELAS E NAVEGAÇÃO
 
@@ -114,22 +111,38 @@ Aplicativo de finanças pessoais, offline-first, usando Expo (React Native + Typ
 - Recorrências (lista, criar/editar)
 - Importar/Exportar
 
+## STATUS RECENTE (Conquistas Novas)
+
+✅ Atualização atômica de saldos ao criar/editar/excluir transações (transações + contas em uma DB transaction)  
+✅ Reatividade: event bus (transactions:\* / accounts:balancesChanged) atualiza listas e dashboard  
+✅ Filtros persistentes (lastUsedFilters) com restauração automática  
+✅ Filtros salvos (add/aplicar/remover) – versão mínima  
+✅ Indicador de filtros ativos no Dashboard  
+✅ Exportação CSV respeitando filtros + compartilhamento (expo-sharing / Share fallback)  
+✅ Query de progresso de orçamentos otimizada (redução de round-trips)
+
 ## FLUXOS CRÍTICOS PENDENTES
 
-❌ **Criar transação**: atualização de saldo atômica
-❌ **Filtros salvos**: totais recalculados
-❌ **Materializar recorrências**: na abertura do app
-⚠️ **Calcular progresso**: de orçamentos (otimização e cache incremental)
-❌ **Exportar CSV**: do período atual
-❌ **Alertas de orçamento**: surfaced no dashboard
+❌ Filtros avançados: categoria múltipla, tags, faixa de valor, texto busca, incluir/excluir transferências
+✅ Índices SQLite iniciais + complementares (migrations 001-002)
+⚠️ Cache incremental de progresso de orçamento + invalidação seletiva
+❌ Materialização de recorrências na abertura / agendamento (idempotente)
+❌ Alertas de orçamento consolidados (dashboard + badges em abas)
+❌ Metas (CRUD + cálculo progresso)
+❌ Engine de recorrências (UI + parser de frequência)
+❌ Backup/Restore (JSON + verificação de schema + versão)
+❌ Anexos (armazenamento seguro + preview + limpeza órfãos)
+❌ Export CSV v2 (tags coluna separada, sinalização clara de transferências, separador configurável)
 
 ## COMPONENTES REUTILIZÁVEIS
 
-✅ **MoneyInput**: input para valores monetários  
-✅ **DatePicker**: seletor de data  
-✅ **CategorySelector**: modal bottom-sheet com scroll fixo  
-✅ **AccountSelector**: modal bottom-sheet com scroll fixo  
-❌ **CategoryPill**: chip de categoria
+✅ MoneyInput (valores)  
+✅ DatePicker (datas)  
+✅ CategorySelector (modal)  
+✅ AccountSelector (modal)  
+⚠️ FilterChips (inline em Transações – extrair para componente isolado)  
+❌ CategoryPill (para uso em listas / filtros avançados)  
+❌ TagInput (planejado para filtros e edição de transação futura)
 
 ### 🎨 PADRÃO DE BOTÕES EM FORMULÁRIOS (OBRIGATÓRIO)
 
@@ -209,46 +222,29 @@ return (
 
 ### ⚠️ EM PROGRESSO (Passo 5)
 
-- Lógica de saldos em tempo real
-- Dashboard com gráficos e KPIs (versão inicial)
-- Otimização de cálculo de progresso de orçamentos
+- Gráficos e KPIs adicionais no Dashboard (comparativo mês anterior, linha de tendência)
+- Cache incremental de progresso de orçamentos
+- Base para filtros avançados (definição de schema + migração índices)
 
 ### ❌ PENDENTE (Passo 5-9)
 
-- Dashboard avançado (drilldown, comparativos)
-- Filtros salvos e busca avançada
-- Alertas de orçamento consolidados (dashboard + badges)
-- Transações recorrentes
-- Anexos de comprovantes
-- Backup e restore
+- Dashboard avançado (drilldown, comparativos, heatmap de dias)
+- Filtros avançados completos (categoria, tags, faixa valor, texto)
+- Alertas de orçamento consolidados (dashboard + badges em abas)
+- Transações recorrentes (engine + UI)
+- Anexos (captura, galeria, limpeza)
+- Backup e restore (JSON + criptografia opcional)
+- Metas (goals) + integração no dashboard
 
-## PRIORIDADES IMEDIATAS
+## PRIORIDADES IMEDIATAS (Atual)
 
-1. **✅ CORRIGIDO - Bug AccountForm**:
-   - ✅ AccountFormScreen: corrigido erro NOT NULL constraint failed: accounts.icon
-   - ✅ Função getIconForType() implementada para garantir ícone baseado no tipo
-   - ✅ Dados de criação/atualização sempre com ícone válido
+1. Migração de índices SQLite (performance filtros/orçamentos)
+2. Schema + UI inicial de filtros avançados (definir TransactionFilters v2)
+3. Cache incremental + badge de alerta de orçamento na Tab
+4. Dashboard: gráfico Entradas vs Saídas (linha/colunas) + comparação mês anterior
+5. Export CSV v2 (tags, transferências, separador configurável)
 
-2. **CRUDs**:
-
-- ✅ Contas
-- ✅ Categorias
-- ✅ Transações
-- ✅ Orçamentos
-- ❌ Dashboard com gráficos e estatísticas
-
-3. **Implementar componentes**:
-   - ✅ MoneyInput para valores
-   - ✅ DatePicker para datas
-   - ✅ CategorySelector
-   - ✅ AccountSelector
-
-4. **Funcionalidade core (próximo)**:
-
-- Atualização de saldo em criar/editar/excluir transações
-- Recalcular saldos globais incrementalmente
-- Filtros funcionais básicos (conta, tipo, período)
-- Otimizar cálculo de progresso de orçamentos e alertas
+Sequência após concluir acima: Recorrências → Backup/Restore → Anexos → Goals.
 
 ## GUIDELINES DE DESENVOLVIMENTO
 
@@ -280,16 +276,11 @@ src/
     └── entities.ts   # ✅ Tipos das entidades
 ```
 
-## PRÓXIMOS PASSOS CRÍTICOS (Atualizado)
+## ROADMAP ALTO NÍVEL
 
-1. Lógica de saldos em tempo real (operações atômicas)
-2. Dashboard: KPIs + gráfico entradas vs saídas
-3. Progresso de orçamentos otimizado + alertas no dashboard
-4. Filtros básicos persistentes (conta, categoria, tipo, período)
-5. Exportação CSV (período atual)
-6. Motor de recorrências (materialização idempotente)
-7. Backup/Restore JSON
-8. Suporte a anexos (estrutura de arquivo + preview)
+Curto prazo (1-2 sprints): Índices, filtros avançados (fase 1), gráfico dashboard, cache budgets.  
+Médio prazo (3-4 sprints): Recorrências, Backup/Restore, Anexos (MVP).  
+Longo prazo: Goals, analytics avançados (comparativos YTD, previsão), automações (reglas inteligentes), multi-idioma completo.
 
 ## DESIGN E UX
 
@@ -299,3 +290,26 @@ src/
 - **Skeletons** durante carregamento
 - **Estados vazios educativos** com calls-to-action
 - **Tema claro/escuro** automático baseado no sistema
+
+## NOTAS PARA CONTRIBUIDORES / AI
+
+- Antes de criar novo utilitário para export, verificar `exportCsv` existente (estender ao invés de duplicar).
+- Evitar recalcular agregados de orçamento completos em cada mudança de transação: implementar camada de cache (ex: tabela budget_progress_cache com invalidation por categoria/período).
+- Reaproveitar event bus existente para disparar eventos específicos de orçamento (`budgets:progressInvalidated`).
+- Ao adicionar filtros avançados, manter objeto `TransactionFilters` serializável e versionado (incluir `version` para migrações futuras).
+- Toda nova migration deve ser idempotente e registrar versão incremental clara.
+
+## QUALIDADE / CHECKLIST DE PR PARA NOVAS FEATURES
+
+1. Cobertura de estados (loading, vazio, erro, sucesso)
+2. Ação primária evidente (até 3 toques para fluxo principal)
+3. Acessibilidade: labels, tamanho toque ≥44dp, contraste
+4. Dark mode conferido manualmente
+5. Sem warnings de TypeScript (strict) novos
+6. Consultas SQL analisadas para necessidade de índices
+7. Operações de escrita dentro de transaction
+8. Eventos emitidos para atualizar telas afetadas
+9. Tests unitários para lógica pura (se aplicável)
+10. Documentação (este arquivo) ajustada se mudar roadmap
+
+Fim do documento.

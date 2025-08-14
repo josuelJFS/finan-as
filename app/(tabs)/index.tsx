@@ -8,6 +8,7 @@ import { AccountDAO, TransactionDAO, BudgetDAO } from "../../src/lib/database";
 import { Events } from "../../src/lib/events";
 import { formatCurrency } from "../../src/lib/utils";
 import type { Account, BalanceSummary } from "../../src/types/entities";
+import { useAppStore } from "../../src/lib/store";
 
 export default function DashboardScreen() {
   const router = useRouter();
@@ -22,6 +23,15 @@ export default function DashboardScreen() {
   const accountDAO = AccountDAO.getInstance();
   const transactionDAO = TransactionDAO.getInstance();
   const budgetDAO = BudgetDAO.getInstance();
+  const lastUsedFilters = useAppStore((s) => s.lastUsedFilters);
+  const filtersActive = !!(
+    lastUsedFilters &&
+    (lastUsedFilters.account_ids?.length ||
+      lastUsedFilters.transaction_types?.length ||
+      lastUsedFilters.category_ids?.length ||
+      lastUsedFilters.date_from ||
+      lastUsedFilters.date_to)
+  );
 
   useEffect(() => {
     loadDashboardData();
@@ -61,30 +71,33 @@ export default function DashboardScreen() {
       // Calcular resumo de saldos
       const { total } = await accountDAO.getBalanceSummary();
 
-      // Buscar transações do mês atual
-      const now = new Date();
-      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-      const endOfMonth = new Date(
-        now.getFullYear(),
-        now.getMonth() + 1,
-        0,
-        23,
-        59,
-        59
-      ).toISOString();
+      // Aplicar período dos filtros ou mês atual
+      let date_from: string;
+      let date_to: string;
+      if (lastUsedFilters?.date_from && lastUsedFilters?.date_to) {
+        date_from = lastUsedFilters.date_from;
+        date_to = lastUsedFilters.date_to;
+      } else {
+        const now = new Date();
+        date_from = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+        date_to = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59).toISOString();
+      }
+
+      const baseFilter = {
+        date_from,
+        date_to,
+        is_pending: false,
+        account_ids: lastUsedFilters?.account_ids,
+      } as any;
 
       const incomeTransactions = await transactionDAO.findAll({
+        ...baseFilter,
         transaction_types: ["income"],
-        date_from: startOfMonth,
-        date_to: endOfMonth,
-        is_pending: false,
       });
 
       const expenseTransactions = await transactionDAO.findAll({
+        ...baseFilter,
         transaction_types: ["expense"],
-        date_from: startOfMonth,
-        date_to: endOfMonth,
-        is_pending: false,
       });
 
       const totalIncome = incomeTransactions.reduce((sum, t) => sum + t.amount, 0);
@@ -114,8 +127,8 @@ export default function DashboardScreen() {
         total_balance: total,
         total_income: totalIncome,
         total_expenses: totalExpenses,
-        period_start: startOfMonth,
-        period_end: endOfMonth,
+        period_start: date_from,
+        period_end: date_to,
       });
     } catch (error) {
       console.error("Erro ao carregar dados do dashboard:", error);
@@ -142,7 +155,16 @@ export default function DashboardScreen() {
       >
         {/* Header */}
         <View className="border-b border-gray-200 bg-white px-6 py-4 dark:border-gray-700 dark:bg-gray-800">
-          <Text className="text-2xl font-bold text-gray-900 dark:text-white">Dashboard</Text>
+          <View className="flex-row items-center justify-between">
+            <Text className="text-2xl font-bold text-gray-900 dark:text-white">Dashboard</Text>
+            {filtersActive && (
+              <View className="rounded-full border border-indigo-400 bg-indigo-50 px-3 py-1 dark:border-indigo-600 dark:bg-indigo-900/30">
+                <Text className="text-xs font-medium text-indigo-700 dark:text-indigo-300">
+                  Filtros Ativos
+                </Text>
+              </View>
+            )}
+          </View>
           <Text className="mt-1 text-sm text-gray-600 dark:text-gray-400">
             {new Date().toLocaleDateString("pt-BR", {
               month: "long",

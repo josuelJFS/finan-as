@@ -1,11 +1,27 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { View, Text, ScrollView, TouchableOpacity, Alert, RefreshControl } from "react-native";
+import {
+  View,
+  Text,
+  ScrollView,
+  TouchableOpacity,
+  Alert,
+  RefreshControl,
+  Modal,
+  FlatList,
+  TextInput,
+} from "react-native";
+import { Share, Platform } from "react-native";
+import * as FileSystem from "expo-file-system";
+import * as Sharing from "expo-sharing";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { TransactionDAO, AccountDAO, CategoryDAO } from "../../lib/database";
+import { exportTransactionsCsv } from "./exportCsv";
 import { formatCurrency } from "../../lib/utils";
-import type { Transaction, Account, Category } from "../../types/entities";
+import type { Transaction, Account, Category, TransactionFilters } from "../../types/entities";
+import { useAppStore } from "../../lib/store";
+import { Events } from "../../lib/events";
 
 interface TransactionWithDetails extends Transaction {
   account_name: string;
@@ -19,6 +35,22 @@ export default function TransactionsListScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [filters, setFilters] = useState<TransactionFilters>({});
+  const [rangeKey, setRangeKey] = useState<string>("month");
+  const [showAccountsModal, setShowAccountsModal] = useState(false);
+  const [selectedAccountIds, setSelectedAccountIds] = useState<string[]>([]);
+  const [showAdvancedModal, setShowAdvancedModal] = useState(false);
+  const [tempSearch, setTempSearch] = useState("");
+  const [tempAmountMin, setTempAmountMin] = useState<string>("");
+  const [tempAmountMax, setTempAmountMax] = useState<string>("");
+  const [tempTags, setTempTags] = useState<string>("");
+  const [tempPendingOnly, setTempPendingOnly] = useState<boolean>(false);
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
+  const lastUsedFilters = useAppStore((s) => s.lastUsedFilters);
+  const setLastUsedFilters = useAppStore((s) => s.setLastUsedFilters);
+  const savedFilters = useAppStore((s) => s.savedFilters);
+  const addSavedFilter = useAppStore((s) => s.addSavedFilter);
+  const removeSavedFilter = useAppStore((s) => s.removeSavedFilter);
 
   const router = useRouter();
   const transactionDAO = TransactionDAO.getInstance();
@@ -32,7 +64,7 @@ export default function TransactionsListScreen() {
     }, [])
   );
 
-  const loadData = useCallback(async () => {
+  const loadData = useCallback(async (overrideFilters?: TransactionFilters) => {
     try {
       setLoading(true);
 
@@ -46,7 +78,7 @@ export default function TransactionsListScreen() {
       setCategories(categoriesData);
 
       // Carregar transações
-      await loadTransactions(accountsData, categoriesData);
+      await loadTransactions(accountsData, categoriesData, overrideFilters);
     } catch (error) {
       console.error("Erro ao carregar dados:", error);
       Alert.alert("Erro", "Não foi possível carregar os dados");
@@ -56,12 +88,16 @@ export default function TransactionsListScreen() {
   }, []);
 
   const loadTransactions = useCallback(
-    async (accountsData?: Account[], categoriesData?: Category[]) => {
+    async (
+      accountsData?: Account[],
+      categoriesData?: Category[],
+      overrideFilters?: TransactionFilters
+    ) => {
       try {
         const accountsList = accountsData || accounts;
         const categoriesList = categoriesData || categories;
-
-        const transactionsData = await transactionDAO.findAll();
+        const effectiveFilters = overrideFilters || filters;
+        const transactionsData = await transactionDAO.findAll(effectiveFilters);
 
         // Enriquecer transações com nomes de conta e categoria
         const enrichedTransactions = transactionsData.map((transaction) => {
@@ -90,14 +126,137 @@ export default function TransactionsListScreen() {
         Alert.alert("Erro", "Não foi possível carregar as transações");
       }
     },
-    [accounts, categories]
+    [accounts, categories, filters]
   );
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await loadData();
+    await loadData(filters);
     setRefreshing(false);
+  }, [filters, loadData]);
+
+  // Carregar filtros persistidos ao montar
+  useEffect(() => {
+    if (lastUsedFilters) {
+      setFilters(lastUsedFilters);
+      if (lastUsedFilters.account_ids) {
+        setSelectedAccountIds(lastUsedFilters.account_ids);
+      }
+      // Derivar rangeKey simples
+      if (lastUsedFilters.date_from && lastUsedFilters.date_to) {
+        const from = new Date(lastUsedFilters.date_from);
+        const to = new Date(lastUsedFilters.date_to);
+        const now = new Date();
+        const startMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        const endMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+        if (from.getTime() === startMonth.getTime() && to.getTime() === endMonth.getTime()) {
+          setRangeKey("month");
+        }
+      }
+    } else {
+      applyRange("month");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Assinar eventos para recarregar sem perder filtros
+  useEffect(() => {
+    const off = Events.on("transactions:changed", () => {
+      loadTransactions();
+    });
+    return off;
+  }, [loadTransactions]);
+
+  const applyRange = (key: string) => {
+    const now = new Date();
+    let date_from: string | undefined;
+    let date_to: string | undefined;
+    switch (key) {
+      case "7d": {
+        const from = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        date_from = from.toISOString();
+        date_to = now.toISOString();
+        break;
+      }
+      case "30d": {
+        const from = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        date_from = from.toISOString();
+        date_to = now.toISOString();
+        break;
+      }
+      case "lastMonth": {
+        const start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        const end = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
+        date_from = start.toISOString();
+        date_to = end.toISOString();
+        break;
+      }
+      case "month":
+      default: {
+        const start = new Date(now.getFullYear(), now.getMonth(), 1);
+        const end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+        date_from = start.toISOString();
+        date_to = end.toISOString();
+      }
+    }
+    setRangeKey(key);
+    const updated = { ...filters, date_from, date_to };
+    setFilters(updated);
+    setLastUsedFilters(updated);
+    loadTransactions(undefined, undefined, updated);
+  };
+
+  const toggleType = (type: Transaction["type"]) => {
+    const current = filters.transaction_types || [];
+    const exists = current.includes(type);
+    const updatedTypes = exists ? current.filter((t) => t !== type) : [...current, type];
+    const updated = {
+      ...filters,
+      transaction_types: updatedTypes.length ? updatedTypes : undefined,
+    };
+    setFilters(updated);
+    setLastUsedFilters(updated);
+    loadTransactions(undefined, undefined, updated);
+  };
+
+  const toggleAccount = (id: string) => {
+    let next: string[] = [];
+    if (selectedAccountIds.includes(id)) {
+      next = selectedAccountIds.filter((a) => a !== id);
+    } else {
+      next = [...selectedAccountIds, id];
+    }
+    setSelectedAccountIds(next);
+    const updated = { ...filters, account_ids: next.length ? next : undefined };
+    setFilters(updated);
+    setLastUsedFilters(updated);
+  };
+
+  const applyAccounts = () => {
+    setShowAccountsModal(false);
+    loadTransactions();
+  };
+
+  const clearFilters = () => {
+    const base: TransactionFilters = {};
+    setFilters(base);
+    setSelectedAccountIds([]);
+    setRangeKey("month");
+    setLastUsedFilters(base);
+    applyRange("month");
+  };
+
+  const activeFiltersCount = [
+    filters.transaction_types?.length || 0,
+    filters.account_ids?.length || 0,
+    filters.category_ids?.length || 0,
+    filters.date_from ? 1 : 0,
+    filters.amount_min !== undefined ? 1 : 0,
+    filters.amount_max !== undefined ? 1 : 0,
+    filters.search_text ? 1 : 0,
+    filters.tags?.length || 0,
+    filters.is_pending !== undefined ? 1 : 0,
+  ].reduce((a, b) => a + (b > 0 ? 1 : 0), 0);
 
   const handleDeleteTransaction = async (transaction: TransactionWithDetails) => {
     Alert.alert(
@@ -193,6 +352,217 @@ export default function TransactionsListScreen() {
             <Text className="font-medium text-white">Nova</Text>
           </TouchableOpacity>
         </View>
+        <View className="mt-3 flex-row flex-wrap">
+          <TouchableOpacity
+            onPress={async () => {
+              try {
+                const path = await exportTransactionsCsv(filters);
+                // Tentar compartilhamento imediato
+                let shared = false;
+                try {
+                  if (await Sharing.isAvailableAsync()) {
+                    await Sharing.shareAsync(path, {
+                      mimeType: "text/csv",
+                      dialogTitle: "Exportar transações (CSV)",
+                      UTI: "public.comma-separated-values-text",
+                    });
+                    shared = true;
+                  } else {
+                    // Fallback Share API
+                    let uri = path;
+                    if (Platform.OS === "android") {
+                      try {
+                        uri = await FileSystem.getContentUriAsync(path);
+                      } catch {}
+                    }
+                    await Share.share({
+                      message: "Transações exportadas em CSV",
+                      url: uri,
+                      title: "Exportar transações",
+                    });
+                    shared = true;
+                  }
+                } catch (shareErr) {
+                  console.warn("Falha ao compartilhar automaticamente", shareErr);
+                }
+
+                if (!shared) {
+                  Alert.alert(
+                    "Exportação concluída",
+                    `Arquivo CSV gerado:\n${path}\n\nNão foi possível abrir o menu de compartilhamento automático. Localize e compartilhe manualmente.`
+                  );
+                }
+              } catch (e) {
+                console.error(e);
+                Alert.alert("Erro", "Falha ao exportar CSV");
+              }
+            }}
+            className="mb-2 mr-3 rounded-md border border-gray-300 px-3 py-2 dark:border-gray-600"
+          >
+            <Text className="text-xs font-medium text-gray-700 dark:text-gray-300">
+              Exportar CSV
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => {
+              if (!filters || Object.keys(filters).length === 0) {
+                Alert.alert("Aviso", "Aplique algum filtro antes de salvar.");
+                return;
+              }
+              const defaultName = `Filtro ${savedFilters.length + 1}`;
+              addSavedFilter(defaultName, filters);
+              Alert.alert("Salvo", `Filtro salvo como '${defaultName}'.`);
+            }}
+            className="mb-2 mr-3 rounded-md border border-gray-300 px-3 py-2 dark:border-gray-600"
+          >
+            <Text className="text-xs font-medium text-gray-700 dark:text-gray-300">
+              Salvar Filtro
+            </Text>
+          </TouchableOpacity>
+          {savedFilters.length > 0 && (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} className="w-full">
+              <View className="mt-1 flex-row items-center">
+                {savedFilters.map((sf) => (
+                  <View
+                    key={sf.id}
+                    className="mb-2 mr-2 flex-row items-center rounded-full border border-indigo-400 bg-indigo-50 px-3 py-1 dark:border-indigo-600 dark:bg-indigo-900/30"
+                  >
+                    <TouchableOpacity
+                      onPress={() => {
+                        setFilters(sf.filters);
+                        setLastUsedFilters(sf.filters);
+                        setSelectedAccountIds(sf.filters.account_ids || []);
+                        loadTransactions(undefined, undefined, sf.filters);
+                      }}
+                    >
+                      <Text className="text-xs font-medium text-indigo-700 dark:text-indigo-300">
+                        {sf.name}
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => removeSavedFilter(sf.id)} className="ml-1">
+                      <Ionicons name="close" size={12} color="#6366f1" />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </View>
+            </ScrollView>
+          )}
+        </View>
+        {/* Chips de filtros */}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mt-4">
+          <View className="flex-row items-center">
+            {[
+              { key: "month", label: "Mês" },
+              { key: "lastMonth", label: "Mês Anterior" },
+              { key: "7d", label: "7d" },
+              { key: "30d", label: "30d" },
+            ].map((r) => (
+              <TouchableOpacity
+                key={r.key}
+                onPress={() => applyRange(r.key)}
+                className={`mr-2 rounded-full border px-4 py-2 ${
+                  rangeKey === r.key
+                    ? "border-blue-500 bg-blue-50 dark:bg-blue-900/30"
+                    : "border-gray-300 bg-white dark:border-gray-600 dark:bg-gray-700"
+                }`}
+              >
+                <Text
+                  className={`text-xs font-medium ${
+                    rangeKey === r.key
+                      ? "text-blue-700 dark:text-blue-300"
+                      : "text-gray-700 dark:text-gray-300"
+                  }`}
+                >
+                  {r.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+
+            {/* Tipos */}
+            {[
+              { key: "income", label: "+" },
+              { key: "expense", label: "-" },
+              { key: "transfer", label: "⇄" },
+            ].map((t) => (
+              <TouchableOpacity
+                key={t.key}
+                onPress={() => toggleType(t.key as any)}
+                className={`mr-2 rounded-full border px-3 py-2 ${
+                  filters.transaction_types?.includes(t.key as any)
+                    ? "border-purple-500 bg-purple-50 dark:bg-purple-900/30"
+                    : "border-gray-300 bg-white dark:border-gray-600 dark:bg-gray-700"
+                }`}
+              >
+                <Text
+                  className={`text-xs font-semibold ${
+                    filters.transaction_types?.includes(t.key as any)
+                      ? "text-purple-700 dark:text-purple-300"
+                      : "text-gray-700 dark:text-gray-300"
+                  }`}
+                >
+                  {t.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+
+            <TouchableOpacity
+              onPress={() => setShowAccountsModal(true)}
+              className={`mr-2 flex-row items-center rounded-full border px-4 py-2 ${
+                filters.account_ids?.length
+                  ? "border-green-500 bg-green-50 dark:bg-green-900/30"
+                  : "border-gray-300 bg-white dark:border-gray-600 dark:bg-gray-700"
+              }`}
+            >
+              <Text
+                className={`text-xs font-medium ${
+                  filters.account_ids?.length
+                    ? "text-green-700 dark:text-green-300"
+                    : "text-gray-700 dark:text-gray-300"
+                }`}
+              >
+                Contas{filters.account_ids?.length ? ` (${filters.account_ids.length})` : ""}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => setShowAdvancedModal(true)}
+              className={`mr-2 rounded-full border px-4 py-2 ${
+                filters.search_text ||
+                filters.amount_min !== undefined ||
+                filters.amount_max !== undefined ||
+                filters.tags?.length ||
+                filters.category_ids?.length ||
+                filters.is_pending !== undefined
+                  ? "border-purple-500 bg-purple-50 dark:bg-purple-900/30"
+                  : "border-gray-300 bg-white dark:border-gray-600 dark:bg-gray-700"
+              }`}
+            >
+              <Text
+                className={`text-xs font-medium ${
+                  filters.search_text ||
+                  filters.amount_min !== undefined ||
+                  filters.amount_max !== undefined ||
+                  filters.tags?.length ||
+                  filters.category_ids?.length ||
+                  filters.is_pending !== undefined
+                    ? "text-purple-700 dark:text-purple-300"
+                    : "text-gray-700 dark:text-gray-300"
+                }`}
+              >
+                Avançado
+              </Text>
+            </TouchableOpacity>
+
+            {activeFiltersCount > 0 && (
+              <TouchableOpacity
+                onPress={clearFilters}
+                className="mr-2 rounded-full border border-red-400 bg-red-50 px-4 py-2 dark:border-red-600 dark:bg-red-900/30"
+              >
+                <Text className="text-xs font-medium text-red-600 dark:text-red-300">Limpar</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </ScrollView>
       </View>
 
       {transactions.length === 0 ? (
@@ -287,6 +657,242 @@ export default function TransactionsListScreen() {
           </View>
         </ScrollView>
       )}
+      {/* Modal contas */}
+      <Modal visible={showAccountsModal} animationType="slide" transparent>
+        <View className="flex-1 justify-end bg-black/50">
+          <View className="max-h-[70%] rounded-t-2xl bg-white p-4 dark:bg-gray-800">
+            <View className="mb-4 flex-row items-center justify-between">
+              <Text className="text-lg font-semibold text-gray-900 dark:text-white">
+                Selecionar Contas
+              </Text>
+              <TouchableOpacity onPress={() => setShowAccountsModal(false)}>
+                <Text className="text-sm text-blue-500">Fechar</Text>
+              </TouchableOpacity>
+            </View>
+            <FlatList
+              data={accounts}
+              keyExtractor={(item) => item.id}
+              renderItem={({ item }) => {
+                const active = selectedAccountIds.includes(item.id);
+                return (
+                  <TouchableOpacity
+                    onPress={() => toggleAccount(item.id)}
+                    className={`mb-2 flex-row items-center rounded-lg border px-3 py-3 ${
+                      active
+                        ? "border-green-500 bg-green-50 dark:bg-green-900/20"
+                        : "border-gray-300 bg-white dark:border-gray-600 dark:bg-gray-700"
+                    }`}
+                  >
+                    <View
+                      className="mr-3 h-8 w-8 items-center justify-center rounded-full"
+                      style={{ backgroundColor: item.color }}
+                    >
+                      <Text className="text-xs font-bold text-white">{item.name[0]}</Text>
+                    </View>
+                    <Text className="flex-1 text-base font-medium text-gray-900 dark:text-white">
+                      {item.name}
+                    </Text>
+                    {active && (
+                      <Text className="text-xs font-semibold text-green-600 dark:text-green-300">
+                        ✓
+                      </Text>
+                    )}
+                  </TouchableOpacity>
+                );
+              }}
+            />
+            <View className="mt-2 flex-row gap-3 pt-2">
+              <TouchableOpacity
+                onPress={() => {
+                  setSelectedAccountIds([]);
+                  const updated = { ...filters, account_ids: undefined };
+                  setFilters(updated);
+                  setLastUsedFilters(updated);
+                }}
+                className="flex-1 rounded-md bg-gray-200 py-3 dark:bg-gray-700"
+              >
+                <Text className="text-center font-semibold text-gray-900 dark:text-white">
+                  Limpar
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={applyAccounts}
+                className="flex-1 rounded-md bg-blue-500 py-3"
+              >
+                <Text className="text-center font-semibold text-white">Aplicar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal filtros avançados */}
+      <Modal visible={showAdvancedModal} animationType="slide" transparent>
+        <View className="flex-1 justify-end bg-black/50">
+          <View className="max-h-[85%] rounded-t-2xl bg-white p-4 dark:bg-gray-800">
+            <View className="mb-4 flex-row items-center justify-between">
+              <Text className="text-lg font-semibold text-gray-900 dark:text-white">
+                Filtros Avançados
+              </Text>
+              <TouchableOpacity onPress={() => setShowAdvancedModal(false)}>
+                <Text className="text-sm text-blue-500">Fechar</Text>
+              </TouchableOpacity>
+            </View>
+            <ScrollView className="flex-1" keyboardShouldPersistTaps="handled">
+              {/* Busca texto */}
+              <View className="mb-4">
+                <Text className="mb-1 text-xs font-semibold text-gray-600 dark:text-gray-300">
+                  Texto (descrição/notas)
+                </Text>
+                <TextInput
+                  value={tempSearch}
+                  onChangeText={setTempSearch}
+                  placeholder="Buscar..."
+                  className="rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
+                  placeholderTextColor="#9ca3af"
+                />
+              </View>
+              {/* Valores */}
+              <View className="mb-4 flex-row gap-3">
+                <View className="flex-1">
+                  <Text className="mb-1 text-xs font-semibold text-gray-600 dark:text-gray-300">
+                    Valor mín
+                  </Text>
+                  <TextInput
+                    value={tempAmountMin}
+                    onChangeText={setTempAmountMin}
+                    keyboardType="numeric"
+                    placeholder="0"
+                    className="rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
+                    placeholderTextColor="#9ca3af"
+                  />
+                </View>
+                <View className="flex-1">
+                  <Text className="mb-1 text-xs font-semibold text-gray-600 dark:text-gray-300">
+                    Valor máx
+                  </Text>
+                  <TextInput
+                    value={tempAmountMax}
+                    onChangeText={setTempAmountMax}
+                    keyboardType="numeric"
+                    placeholder="0"
+                    className="rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
+                    placeholderTextColor="#9ca3af"
+                  />
+                </View>
+              </View>
+              {/* Tags */}
+              <View className="mb-4">
+                <Text className="mb-1 text-xs font-semibold text-gray-600 dark:text-gray-300">
+                  Tags (separar por vírgula)
+                </Text>
+                <TextInput
+                  value={tempTags}
+                  onChangeText={setTempTags}
+                  placeholder="ex: viagem,imposto"
+                  className="rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
+                  placeholderTextColor="#9ca3af"
+                />
+              </View>
+              {/* Pendentes */}
+              <View className="mb-4 flex-row items-center">
+                <TouchableOpacity
+                  onPress={() => setTempPendingOnly((p) => !p)}
+                  className={`mr-3 h-6 w-6 items-center justify-center rounded border ${
+                    tempPendingOnly
+                      ? "border-yellow-500 bg-yellow-100 dark:border-yellow-400 dark:bg-yellow-600/30"
+                      : "border-gray-400 bg-white dark:border-gray-600 dark:bg-gray-700"
+                  }`}
+                >
+                  {tempPendingOnly && (
+                    <Text className="text-xs font-bold text-yellow-700 dark:text-yellow-300">
+                      ✓
+                    </Text>
+                  )}
+                </TouchableOpacity>
+                <Text className="text-sm text-gray-700 dark:text-gray-300">Somente pendentes</Text>
+              </View>
+              {/* Categorias */}
+              <View className="mb-4">
+                <Text className="mb-2 text-xs font-semibold text-gray-600 dark:text-gray-300">
+                  Categorias
+                </Text>
+                {categories.map((cat) => {
+                  const active = selectedCategoryIds.includes(cat.id);
+                  return (
+                    <TouchableOpacity
+                      key={cat.id}
+                      onPress={() => {
+                        setSelectedCategoryIds((prev) =>
+                          prev.includes(cat.id)
+                            ? prev.filter((c) => c !== cat.id)
+                            : [...prev, cat.id]
+                        );
+                      }}
+                      className={`mb-2 flex-row items-center rounded-lg border px-3 py-2 ${
+                        active
+                          ? "border-indigo-500 bg-indigo-50 dark:bg-indigo-900/30"
+                          : "border-gray-300 bg-white dark:border-gray-600 dark:bg-gray-700"
+                      }`}
+                    >
+                      <Text className="flex-1 text-sm font-medium text-gray-800 dark:text-gray-100">
+                        {cat.name}
+                      </Text>
+                      {active && (
+                        <Text className="text-xs font-semibold text-indigo-600 dark:text-indigo-300">
+                          ✓
+                        </Text>
+                      )}
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </ScrollView>
+            <View className="mt-2 flex-row gap-3 pt-2">
+              <TouchableOpacity
+                onPress={() => {
+                  setTempSearch("");
+                  setTempAmountMin("");
+                  setTempAmountMax("");
+                  setTempTags("");
+                  setTempPendingOnly(false);
+                  setSelectedCategoryIds([]);
+                }}
+                className="flex-1 rounded-md bg-gray-200 py-3 dark:bg-gray-700"
+              >
+                <Text className="text-center font-semibold text-gray-900 dark:text-white">
+                  Limpar
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => {
+                  const updated: TransactionFilters = {
+                    ...filters,
+                    search_text: tempSearch || undefined,
+                    amount_min: tempAmountMin ? parseFloat(tempAmountMin) : undefined,
+                    amount_max: tempAmountMax ? parseFloat(tempAmountMax) : undefined,
+                    tags: tempTags
+                      ? tempTags
+                          .split(",")
+                          .map((t) => t.trim())
+                          .filter(Boolean)
+                      : undefined,
+                    category_ids: selectedCategoryIds.length ? selectedCategoryIds : undefined,
+                    is_pending: tempPendingOnly ? true : undefined,
+                  };
+                  setFilters(updated);
+                  setLastUsedFilters(updated);
+                  setShowAdvancedModal(false);
+                  loadTransactions(undefined, undefined, updated);
+                }}
+                className="flex-1 rounded-md bg-blue-500 py-3"
+              >
+                <Text className="text-center font-semibold text-white">Aplicar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }

@@ -475,6 +475,17 @@ export class TransactionDAO {
       params.push(searchParam, searchParam);
     }
 
+    if (filters?.tags && filters.tags.length > 0) {
+      // Busca simples: qualquer uma das tags presentes no array JSON (armazenado como string)
+      // Forma: tags LIKE '%"tag"%'
+      const tagConditions: string[] = [];
+      for (const tag of filters.tags) {
+        tagConditions.push("tags LIKE ?");
+        params.push(`%"${tag}"%`);
+      }
+      conditions.push(`(${tagConditions.join(" OR ")})`);
+    }
+
     if (filters?.is_pending !== undefined) {
       conditions.push("is_pending = ?");
       params.push(filters.is_pending ? 1 : 0);
