@@ -7,6 +7,7 @@ export { AccountDAO } from "./AccountDAO";
 export { BudgetDAO } from "./BudgetDAO";
 export { CategoryDAO, type CategoryHierarchy, type CategoryUsageStats } from "./CategoryDAO";
 export { TransactionDAO, type MonthlyTrend, type CategorySummary } from "./TransactionDAO";
+export { RecurrenceDAO, materializeDueRecurrences, computeNextOccurrence } from "./RecurrenceDAO";
 
 // Database initialization helper
 export const initializeDatabase = async (): Promise<void> => {

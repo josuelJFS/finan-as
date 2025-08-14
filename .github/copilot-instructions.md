@@ -76,7 +76,7 @@ Aplicativo de finanças pessoais, offline-first, usando Expo (React Native + Typ
 4. ✅ **CRUD de transações** (despesas/receitas/transferências + notas + tags básicas)
 5. ✅ **Busca e filtros Fase 1** (período, tipo, contas, multi categoria, texto, tags, faixa valor, pendentes, filtros salvos)
 6. ✅ **Orçamentos** (CRUD + progresso + alertas básicos + cache fase 1)
-7. ❌ **Transações recorrentes (engine + materialização idempotente)**
+7. 🔶 **Transações recorrentes** (DAO + cálculo próxima ocorrência + materialização básica no startup + telas lista/form esqueleto; faltam: seleção real de contas/categorias, edição, toggle ativa/inativa, dias semana, transferências, UI completa, marcação nas transações)
 8. ❌ **Backup & Restore (export/import JSON + validação)**
 9. 🔶 **Dashboard** (básico pronto; faltam comparativos adicionais / toggle 6-12m / linha tendência)
 10. ❌ **Alertas de orçamento consolidados (painel unificado)**
@@ -130,7 +130,7 @@ Benefício: aceleração de filtros por período/conta/categoria/tipo e cálculo
 
 ## PENDENTES OBRIGATÓRIOS 1.0
 
-❌ Recorrências (engine + parser + materialização idempotente na abertura)
+🔶 Recorrências (engine base + DAO + materialização inicial feitos; faltar UI completa + edição + toggle + weekly UX + seleção contas/categorias)
 ❌ Backup & Restore (export JSON versionado + import com validação e overwrite seguro)
 ❌ Alertas de orçamento consolidados (lista de categorias em risco / excedidas)
 ❌ Filtros avançados Fase 2 (UX refinada, presets, AND/OR tags, destaque transfers, reset rápido)
@@ -255,7 +255,7 @@ return (
 
 ## PRIORIDADES IMEDIATAS (Atualizadas)
 
-1. ❌ Recorrências (engine + materialização) – base
+1. 🔶 Recorrências (engine base/materialização inicial prontos; implementar UI completa + edição/toggle + weekly days + seleção contas/categorias)
 2. ❌ Backup & Restore (fluxo mínimo)
 3. ❌ Invalidação seletiva cache budgets
 4. 🔶 Dashboard: toggle 6/12m + linha tendência
@@ -263,7 +263,7 @@ return (
 6. 🔶 Export CSV v2: formatação números
 7. ❌ Alertas de orçamento consolidados (painel)
 
-✅ Concluído recentemente: Extração FilterChips + AdvancedFilterModal; Deltas mês atual vs anterior no gráfico; Badge alerta orçamento
+✅ Concluído recentemente: Extração FilterChips + AdvancedFilterModal; Deltas mês atual vs anterior no gráfico; Badge alerta orçamento; Base Recorrências (DAO + engine + materialização inicial + telas lista/form esqueleto)
 
 ## BACKLOG DE MELHORIAS (Não Essenciais / Agendar Depois)
 

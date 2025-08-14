@@ -5,14 +5,21 @@ import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { useAppStore } from "../src/lib/store";
 import { useEffect } from "react";
-import { initializeDatabase } from "../src/lib/database";
+import { initializeDatabase, materializeDueRecurrences } from "../src/lib/database";
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
   const { theme } = useAppStore();
 
   useEffect(() => {
-    initializeDatabase().catch(console.error);
+    (async () => {
+      try {
+        await initializeDatabase();
+        await materializeDueRecurrences();
+      } catch (e) {
+        console.warn("[Startup] Erro durante init/materialize", e);
+      }
+    })();
   }, []);
 
   // Determinar tema atual
@@ -33,6 +40,8 @@ export default function RootLayout() {
         <Stack.Screen name="onboarding" />
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="budgets/create" options={{ presentation: "modal" }} />
+        <Stack.Screen name="recurrences/index" />
+        <Stack.Screen name="recurrences/new" options={{ presentation: "modal" }} />
       </Stack>
       <StatusBar style={isDark ? "light" : "dark"} />
     </SafeAreaProvider>
