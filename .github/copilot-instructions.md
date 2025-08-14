@@ -77,7 +77,7 @@ Aplicativo de finanças pessoais, offline-first, usando Expo (React Native + Typ
 5. ✅ **Busca e filtros Fase 1** (período, tipo, contas, multi categoria, texto, tags, faixa valor, pendentes, filtros salvos)
 6. ✅ **Orçamentos** (CRUD + progresso + alertas básicos + cache fase 1)
 7. 🔶 **Transações recorrentes** (DAO + cálculo próxima ocorrência + materialização básica no startup + telas lista/form esqueleto; faltam: seleção real de contas/categorias, edição, toggle ativa/inativa, dias semana, transferências, UI completa, marcação nas transações)
-8. ❌ **Backup & Restore (export/import JSON + validação)**
+8. 🔶 **Backup & Restore (export/import JSON + validação)**
 9. 🔶 **Dashboard** (básico pronto; faltam comparativos adicionais / toggle 6-12m / linha tendência)
 10. ❌ **Alertas de orçamento consolidados (painel unificado)**
 11. 🔶 **Exportação CSV v2** (tags + separador + marcador transfer OK; falta formatação regional números)
@@ -126,16 +126,17 @@ Benefício: aceleração de filtros por período/conta/categoria/tipo e cálculo
 ✅ Indicador de filtros ativos no Dashboard  
 ✅ Exportação CSV respeitando filtros + compartilhamento (expo-sharing / Share fallback)  
 ✅ Query de progresso de orçamentos otimizada (redução de round-trips)
-✅ Cache incremental de progresso de orçamentos (tabela budget_progress_cache + invalidação simples por transação)
+✅ Cache incremental de progresso de orçamentos (tabela budget_progress_cache + invalidação simples por transação)  
+✅ Recorrências: CRUD completo (criar, editar, desativar, reativar, deletar) + materialização inicial + validações (frequência, intervalo, dias semana, fim opcional) + badge em transações  
+✅ Backup & Restore: export JSON versionado, compartilhamento, import com overwrite seguro e validação + UI dedicada em Settings  
+🔶 Dashboard: toggle 6/12 meses + resumo textual de linha de tendência (regressão linear simples) integrado (falta visualização gráfica da linha)
 
 ## PENDENTES OBRIGATÓRIOS 1.0
 
-🔶 Recorrências (engine base + DAO + materialização inicial feitos; faltar UI completa + edição + toggle + weekly UX + seleção contas/categorias)
-❌ Backup & Restore (export JSON versionado + import com validação e overwrite seguro)
-❌ Alertas de orçamento consolidados (lista de categorias em risco / excedidas)
-❌ Filtros avançados Fase 2 (UX refinada, presets, AND/OR tags, destaque transfers, reset rápido)
-❌ Invalidação seletiva cache de orçamentos (categoria/período) – fase 2
-❌ Dashboard melhorias: toggle 6/12 meses + linha tendência simples
+❌ Alertas de orçamento consolidados (lista de categorias em risco / excedidas)  
+❌ Filtros avançados Fase 2 (UX refinada, presets, AND/OR tags, destaque transfers, reset rápido)  
+🔶 Invalidação seletiva cache de orçamentos (categoria/período) – fase 2 (parcial: invalidação por transações despesas implementada)
+🔶 Dashboard melhorias: linha tendência visual + comparativos extras  
 🔶 Export CSV v2: formatação regional números pendente
 
 ## OPCIONAIS (PÓS 1.0)
@@ -238,30 +239,28 @@ return (
 
 ### 🔶 EM PROGRESSO (Passo 5)
 
-- Dashboard melhorias (toggle período / linha tendência)
-- Cache de orçamentos fase 2 (invalidação seletiva)
-- Export CSV v2 (finalizar formatação números)
+- Cache de orçamentos fase 2 (invalidação seletiva) – em andamento (já invalida budgets afetados por transações de despesa)
+- Export CSV v2 (formatação números pendente)
+- Dashboard: evolução (exibir graficamente linha de tendência e comparativos 6m vs 6m anterior)
 
 ### ❌ PENDENTE (Passo 5-9)
 
-- Recorrências (engine + UI)
-- Backup & Restore
 - Alertas de orçamento consolidados
 - Filtros avançados fase 2
 - Invalidação seletiva cache budgets
-- Dashboard: melhorias (comparativos extras / linha)
+- Dashboard: comparativos extras / linha de tendência visual
 - (Opcional) Goals
 - (Opcional) Anexos
 
 ## PRIORIDADES IMEDIATAS (Atualizadas)
 
-1. 🔶 Recorrências (engine base/materialização inicial prontos; implementar UI completa + edição/toggle + weekly days + seleção contas/categorias)
-2. ❌ Backup & Restore (fluxo mínimo)
-3. ❌ Invalidação seletiva cache budgets
-4. 🔶 Dashboard: toggle 6/12m + linha tendência
-5. ❌ Filtros avançados Fase 2 (após refactor concluído ✅)
-6. 🔶 Export CSV v2: formatação números
-7. ❌ Alertas de orçamento consolidados (painel)
+1. ❌ Invalidação seletiva cache budgets (fase 2)
+2. ❌ Alertas de orçamento consolidados (painel unificado)
+3. ❌ Filtros avançados Fase 2 (UX + presets + tags AND/OR + reset rápido)
+4. 🔶 Export CSV v2: formatação regional de números
+5. 🔶 Dashboard: visualização gráfica da linha de tendência + comparativo 6/12m adicional
+6. 🟡 Goals (opcional pós 1.0)
+7. 🟡 Anexos (MVP)
 
 ✅ Concluído recentemente: Extração FilterChips + AdvancedFilterModal; Deltas mês atual vs anterior no gráfico; Badge alerta orçamento; Base Recorrências (DAO + engine + materialização inicial + telas lista/form esqueleto)
 
@@ -280,7 +279,7 @@ Foco primeiro no essencial (prioridades imediatas). Itens abaixo são incrementa
 - Pré-cálculo incremental seletivo: mapear budgets ativos por categoria para invalidar apenas os afetados por uma transação (fase 2 do cache).
 - Remover logs verbosos (`findAll` de budgets) em builds de produção.
 
-Sequência após concluir acima: Recorrências → Backup/Restore → Anexos → Goals → Filtros Avançados Fase 2.
+Sequência após concluir acima: Invalidação seletiva → Alertas de orçamento → Filtros Avançados Fase 2 → Export CSV formatação → Linha tendência visual → (Pós 1.0) Goals / Anexos.
 
 ## GUIDELINES DE DESENVOLVIMENTO
 

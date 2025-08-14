@@ -11,6 +11,41 @@ import { formatCurrency } from "../../src/lib/utils";
 import type { Account, BalanceSummary } from "../../src/types/entities";
 import { useAppStore } from "../../src/lib/store";
 
+// Resumo simples de tendência (regressão linear) textual para MVP
+function TrendLineSummary({ data, range }: { data: any[]; range: number }) {
+  try {
+    if (!data || data.length === 0) return null;
+    const sliced = data.slice(-range);
+    if (sliced.length < 2) return null;
+    // Usar saldo líquido (receita - despesa) como métrica
+    const points = sliced.map((m: any, i: number) => ({
+      x: i,
+      y: (m.total_income || 0) - (m.total_expense || 0),
+    }));
+    const n = points.length;
+    const sumX = points.reduce((s, p) => s + p.x, 0);
+    const sumY = points.reduce((s, p) => s + p.y, 0);
+    const sumXY = points.reduce((s, p) => s + p.x * p.y, 0);
+    const sumX2 = points.reduce((s, p) => s + p.x * p.x, 0);
+    const denom = n * sumX2 - sumX * sumX;
+    if (denom === 0) return null;
+    const slope = (n * sumXY - sumX * sumY) / denom; // tendência mensal média
+    const avg = sumY / n;
+    const slopePct = avg !== 0 ? (slope / Math.abs(avg)) * 100 : 0;
+    const direction = slope > 0 ? "alta" : slope < 0 ? "queda" : "estável";
+    return (
+      <View className="mt-3 rounded-md bg-white p-3 dark:bg-gray-800">
+        <Text className="text-xs text-gray-600 dark:text-gray-400">
+          Tendência ({range}m): {direction} {Math.abs(slope).toFixed(0)} / mês (
+          {slopePct.toFixed(1)}%)
+        </Text>
+      </View>
+    );
+  } catch (e) {
+    return null;
+  }
+}
+
 export default function DashboardScreen() {
   const router = useRouter();
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -35,6 +70,7 @@ export default function DashboardScreen() {
       lastUsedFilters.date_to)
   );
 
+  const [trendRange, setTrendRange] = useState<6 | 12>(6);
   useEffect(() => {
     loadDashboardData();
     const off1 = Events.on("accounts:balancesChanged", () => {

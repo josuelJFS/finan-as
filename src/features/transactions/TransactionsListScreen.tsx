@@ -569,6 +569,13 @@ export default function TransactionsListScreen() {
                             • {transaction.category_name}
                           </Text>
                         )}
+                        {transaction.recurrence_id && (
+                          <View className="ml-2 rounded-full bg-purple-100 px-2 py-[2px] dark:bg-purple-700/40">
+                            <Text className="text-[10px] font-semibold text-purple-700 dark:text-purple-300">
+                              Recorrente
+                            </Text>
+                          </View>
+                        )}
                       </View>
 
                       {transaction.type === "transfer" && transaction.destination_account_name && (

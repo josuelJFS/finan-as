@@ -78,6 +78,12 @@ export class RecurrenceDAO {
     return rows.map(this.mapRow);
   }
 
+  async getById(id: string): Promise<Recurrence | null> {
+    const db = await this.getDb();
+    const row = await db.getFirstAsync<any>(`SELECT * FROM recurrences WHERE id = ?`, [id]);
+    return row ? this.mapRow(row) : null;
+  }
+
   async findDue(nowISO: string): Promise<Recurrence[]> {
     const db = await this.getDb();
     const rows = await db.getAllAsync<any>(
@@ -104,6 +110,77 @@ export class RecurrenceDAO {
       `UPDATE recurrences SET is_active = 0, updated_at = datetime('now') WHERE id = ?`,
       [id]
     );
+  }
+
+  async reactivate(id: string): Promise<void> {
+    const db = await this.getDb();
+    // Reativar mantendo a próxima ocorrência coerente (se estiver no passado, avançar)
+    const row = await db.getFirstAsync<any>(`SELECT * FROM recurrences WHERE id = ?`, [id]);
+    if (!row) return;
+    let next = row.next_occurrence as string;
+    const today = new Date().toISOString().substring(0, 10);
+    if (next < today) {
+      // Avançar até hoje ou próxima data futura
+      const mapped = this.mapRow(row);
+      let safety = 0;
+      while (next < today && safety < 100) {
+        const newNext = computeNextOccurrence({ ...mapped, next_occurrence: next });
+        if (!newNext || newNext === next) break;
+        next = newNext;
+        safety++;
+      }
+    }
+    await db.runAsync(
+      `UPDATE recurrences SET is_active = 1, next_occurrence = ?, updated_at = datetime('now') WHERE id = ?`,
+      [next, id]
+    );
+  }
+
+  async update(id: string, partial: Partial<CreateRecurrenceInput>): Promise<void> {
+    const db = await this.getDb();
+    const existing = await db.getFirstAsync<any>(`SELECT * FROM recurrences WHERE id = ?`, [id]);
+    if (!existing) return;
+    // Construir atualização dinâmica simples
+    const fields: string[] = [];
+    const values: any[] = [];
+    const map: Record<string, any> = {
+      name: partial.name,
+      type: partial.type,
+      account_id: partial.account_id,
+      destination_account_id: partial.destination_account_id ?? null,
+      category_id: partial.category_id ?? null,
+      amount: partial.amount,
+      description: partial.description,
+      notes: partial.notes ?? null,
+      frequency: partial.frequency,
+      interval_count: partial.interval_count,
+      days_of_week: partial.days_of_week ? JSON.stringify(partial.days_of_week) : null,
+      day_of_month: partial.day_of_month ?? null,
+      start_date: partial.start_date,
+      end_date: partial.end_date ?? null,
+      is_active: partial.is_active === undefined ? undefined : partial.is_active ? 1 : 0,
+      tags: partial.tags ? JSON.stringify(partial.tags) : null,
+    };
+    for (const [k, v] of Object.entries(map)) {
+      if (v !== undefined) {
+        fields.push(`${k} = ?`);
+        values.push(v);
+      }
+    }
+    if (!fields.length) return;
+    // Ajustar next_occurrence se start_date mudou
+    if (partial.start_date) {
+      fields.push(`next_occurrence = ?`);
+      values.push(partial.start_date);
+    }
+    values.push(id);
+    const sql = `UPDATE recurrences SET ${fields.join(", ")}, updated_at = datetime('now') WHERE id = ?`;
+    await db.runAsync(sql, values);
+  }
+
+  async delete(id: string): Promise<void> {
+    const db = await this.getDb();
+    await db.runAsync(`DELETE FROM recurrences WHERE id = ?`, [id]);
   }
 
   private mapRow(row: any): Recurrence {
@@ -210,7 +287,7 @@ export async function materializeDueRecurrences(): Promise<number> {
     let nextDate = rec.next_occurrence;
     while (nextDate <= nowISO && safety < 100) {
       // Criar transação baseada na recorrência
-      await transactionDAO.create({
+      const createdId = await transactionDAO.create({
         type: rec.type,
         account_id: rec.account_id,
         destination_account_id: rec.destination_account_id,
@@ -224,6 +301,7 @@ export async function materializeDueRecurrences(): Promise<number> {
         recurrence_id: rec.id,
         is_pending: false,
       });
+      // Futuro: poderíamos armazenar auditoria da ocorrência
       created++;
       safety++;
       // Calcular próxima

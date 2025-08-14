@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { View, Text, FlatList, TouchableOpacity, ActivityIndicator } from "react-native";
+import { View, Text, FlatList, TouchableOpacity, ActivityIndicator, Alert } from "react-native";
 import { useRouter } from "expo-router";
 import { RecurrenceDAO } from "../../lib/database";
 import type { Recurrence } from "../../types/entities";
@@ -22,6 +22,36 @@ export default function RecurrencesListScreen() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const toggleActive = async (rec: Recurrence) => {
+    try {
+      const dao = RecurrenceDAO.getInstance();
+      if (rec.is_active) await dao.deactivate(rec.id);
+      else await dao.reactivate(rec.id);
+      await load();
+    } catch (e) {
+      console.warn("Falha ao alternar recorrência", e);
+    }
+  };
+
+  const remove = (rec: Recurrence) => {
+    Alert.alert("Remover", `Excluir recorrência "${rec.name}"?`, [
+      { text: "Cancelar", style: "cancel" },
+      {
+        text: "Excluir",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            const dao = RecurrenceDAO.getInstance();
+            await dao.delete(rec.id);
+            await load();
+          } catch (e) {
+            console.warn(e);
+          }
+        },
+      },
+    ]);
   };
 
   useEffect(() => {
@@ -79,15 +109,14 @@ export default function RecurrencesListScreen() {
                 <Text className="text-base font-semibold text-gray-900 dark:text-white">
                   {item.name}
                 </Text>
-                {item.is_active ? (
-                  <Text className="text-xs font-semibold text-green-600 dark:text-green-400">
-                    ATIVA
+                <TouchableOpacity
+                  onPress={() => toggleActive(item)}
+                  className={`rounded-md px-2 py-1 ${item.is_active ? "bg-green-600" : "bg-gray-500"}`}
+                >
+                  <Text className="text-[10px] font-semibold text-white">
+                    {item.is_active ? "ATIVA" : "INATIVA"}
                   </Text>
-                ) : (
-                  <Text className="text-xs font-semibold text-gray-500 dark:text-gray-400">
-                    INATIVA
-                  </Text>
-                )}
+                </TouchableOpacity>
               </View>
               <Text className="text-xs text-gray-500 dark:text-gray-400">
                 Próxima: {item.next_occurrence}
@@ -95,6 +124,20 @@ export default function RecurrencesListScreen() {
               <Text className="mt-1 text-sm text-gray-700 dark:text-gray-300">
                 {item.description}
               </Text>
+              <View className="mt-2 flex-row gap-2">
+                <TouchableOpacity
+                  onPress={() => router.push(`/recurrences/new?id=${item.id}`)}
+                  className="rounded-md bg-blue-500 px-3 py-1"
+                >
+                  <Text className="text-xs font-semibold text-white">Editar</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => remove(item)}
+                  className="rounded-md bg-red-500 px-3 py-1"
+                >
+                  <Text className="text-xs font-semibold text-white">Remover</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           );
         }}

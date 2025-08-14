@@ -38,11 +38,11 @@ export default function SettingsScreen() {
   };
 
   const handleBackup = () => {
-    Alert.alert("Backup", "Funcionalidade de backup em desenvolvimento", [{ text: "OK" }]);
+    router.push("/settings/backup");
   };
 
   const handleRestore = () => {
-    Alert.alert("Restaurar", "Funcionalidade de restauração em desenvolvimento", [{ text: "OK" }]);
+    router.push("/settings/backup");
   };
 
   return (

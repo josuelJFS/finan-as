@@ -8,6 +8,8 @@ export { BudgetDAO } from "./BudgetDAO";
 export { CategoryDAO, type CategoryHierarchy, type CategoryUsageStats } from "./CategoryDAO";
 export { TransactionDAO, type MonthlyTrend, type CategorySummary } from "./TransactionDAO";
 export { RecurrenceDAO, materializeDueRecurrences, computeNextOccurrence } from "./RecurrenceDAO";
+// Backup utilities (export centralizado)
+export { exportBackupToFile, shareBackup, importBackup } from "../backup";
 
 // Database initialization helper
 export const initializeDatabase = async (): Promise<void> => {

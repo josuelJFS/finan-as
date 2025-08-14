@@ -2,15 +2,18 @@ import * as SQLite from "expo-sqlite";
 import { getDatabase } from "./migrations";
 import { Events } from "../events";
 import { AccountDAO } from "./AccountDAO";
+import { BudgetDAO } from "./BudgetDAO";
 import type { Transaction, TransactionType, TransactionFilters } from "../../types/entities";
 
 export class TransactionDAO {
   private static instance: TransactionDAO;
   private db: SQLite.SQLiteDatabase | null = null;
   private accountDAO: AccountDAO;
+  private budgetDAO: BudgetDAO;
 
   private constructor() {
     this.accountDAO = AccountDAO.getInstance();
+    this.budgetDAO = BudgetDAO.getInstance();
   }
 
   public static getInstance(): TransactionDAO {
@@ -74,6 +77,20 @@ export class TransactionDAO {
       }
 
       await db.execAsync("COMMIT");
+      // Invalidação seletiva budgets
+      try {
+        await this.budgetDAO.invalidateForTransactionChange(
+          null as any,
+          {
+            ...transaction,
+            id: transactionId,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          } as any
+        );
+      } catch (e) {
+        console.warn("[TransactionDAO] erro ao invalidar budgets (create)", e);
+      }
       // Emitir eventos
       Events.emit("transactions:changed", { action: "create", id: transactionId });
       Events.emit("accounts:balancesChanged", undefined as any);
@@ -224,6 +241,15 @@ export class TransactionDAO {
       }
 
       await db.execAsync("COMMIT");
+      // Invalidação seletiva budgets
+      try {
+        await this.budgetDAO.invalidateForTransactionChange(
+          currentTransaction as any,
+          updatedTransaction as any
+        );
+      } catch (e) {
+        console.warn("[TransactionDAO] erro ao invalidar budgets (update)", e);
+      }
       Events.emit("transactions:changed", { action: "update", id });
       Events.emit("accounts:balancesChanged", undefined as any);
     } catch (error) {
@@ -253,6 +279,12 @@ export class TransactionDAO {
       await db.runAsync("DELETE FROM transactions WHERE id = ?", [id]);
 
       await db.execAsync("COMMIT");
+      // Invalidação seletiva budgets
+      try {
+        await this.budgetDAO.invalidateForTransactionChange(transaction as any, null as any);
+      } catch (e) {
+        console.warn("[TransactionDAO] erro ao invalidar budgets (delete)", e);
+      }
       Events.emit("transactions:changed", { action: "delete", id });
       Events.emit("accounts:balancesChanged", undefined as any);
     } catch (error) {

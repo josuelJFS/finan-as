@@ -1,6 +1,6 @@
 import * as SQLite from "expo-sqlite";
 import { getDatabase } from "./migrations";
-import type { Budget, BudgetPeriodType } from "../../types/entities";
+import type { Budget, BudgetPeriodType, Transaction } from "../../types/entities";
 import { Events } from "../events";
 
 export interface BudgetFilters {
@@ -383,15 +383,70 @@ export class BudgetDAO {
     await db.runAsync("DELETE FROM budget_progress_cache WHERE budget_id = ?", [budget_id]);
     Events.emit("budgets:progressInvalidated", { reason: "selective invalidation" } as any);
   }
+
+  // Invalidação seletiva baseada em mudança de transação (antes/depois)
+  async invalidateForTransactionChange(prevTx: Transaction | null, nextTx: Transaction | null) {
+    try {
+      const db = await this.getDb();
+      // Considerar apenas despesas (budget rastreia gastos)
+      const relevant: { date: string; category_id: string | null }[] = [];
+      const pushIf = (tx: Transaction | null) => {
+        if (!tx) return;
+        if (tx.type !== "expense") return;
+        relevant.push({ date: tx.occurred_at, category_id: tx.category_id || null });
+      };
+      pushIf(prevTx);
+      pushIf(nextTx);
+      if (relevant.length === 0) return;
+
+      // Normalizar (remover duplicados)
+      const keySet = new Set<string>();
+      const combos = relevant.filter((r) => {
+        const k = `${r.date.substring(0, 10)}|${r.category_id || "_"}`;
+        if (keySet.has(k)) return false;
+        keySet.add(k);
+        return true;
+      });
+
+      const affectedBudgetIds = new Set<string>();
+      for (const combo of combos) {
+        // Buscar orçamentos ativos que abrangem a data e combinam com categoria (ou sem categoria)
+        const date = combo.date;
+        const categoryId = combo.category_id;
+        const rows = await db.getAllAsync<any>(
+          `SELECT id, period_start, period_end FROM budgets 
+           WHERE is_active = 1 
+             AND period_start <= ? 
+             AND period_end >= ? 
+             AND (category_id IS NULL OR category_id = ?)`,
+          [date, date, categoryId]
+        );
+        for (const r of rows) {
+          affectedBudgetIds.add(`${r.id}|${r.period_start}|${r.period_end}`);
+        }
+      }
+
+      if (affectedBudgetIds.size === 0) return;
+
+      await db.execAsync("BEGIN TRANSACTION");
+      try {
+        for (const key of affectedBudgetIds) {
+          const [id, period_start, period_end] = key.split("|");
+          await db.runAsync(
+            `DELETE FROM budget_progress_cache WHERE budget_id = ? AND period_start = ? AND period_end = ?`,
+            [id, period_start, period_end]
+          );
+        }
+        await db.execAsync("COMMIT");
+      } catch (e) {
+        await db.execAsync("ROLLBACK");
+        throw e;
+      }
+      Events.emit("budgets:progressInvalidated", { reason: "transaction selective" } as any);
+    } catch (e) {
+      console.warn("[BudgetDAO] Falha na invalidação seletiva por transação", e);
+    }
+  }
 }
 
-// Listener para invalidar cache quando transações mudam
-Events.on("transactions:changed", () => {
-  // Estratégia simples: limpeza total (pode otimizar mais tarde por período/categoria)
-  getDatabase().then((db) => {
-    db.runAsync("DELETE FROM budget_progress_cache").catch((e) =>
-      console.warn("[BudgetCache] Falha ao limpar cache após transação", e)
-    );
-    Events.emit("budgets:progressInvalidated", { reason: "transaction change" } as any);
-  });
-});
+// (Listener global removido em favor de invalidação seletiva dentro do TransactionDAO)
