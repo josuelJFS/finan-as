@@ -254,7 +254,68 @@ export default function DashboardScreen() {
         {/* Gráfico Entradas vs Saídas */}
         {monthlyTrends.length > 1 && (
           <View className="mx-4 mt-6">
-            <MonthlyTrendsChart data={monthlyTrends} months={6} />
+            <MonthlyTrendsChart data={monthlyTrends} months={6} showTrendLine />
+            {monthlyTrends.length >= 12 && (
+              <View className="mt-4 rounded-lg bg-white p-4 dark:bg-gray-800">
+                {(() => {
+                  const last6 = monthlyTrends.slice(-6);
+                  const prev6 = monthlyTrends.slice(-12, -6);
+                  const sum = (arr: any[], k: string) => arr.reduce((s, v) => s + (v[k] || 0), 0);
+                  const incNow = sum(last6, "income");
+                  const incPrev = sum(prev6, "income");
+                  const expNow = sum(last6, "expenses");
+                  const expPrev = sum(prev6, "expenses");
+                  const balNow = incNow - expNow;
+                  const balPrev = incPrev - expPrev;
+                  function delta(curr: number, prev: number) {
+                    if (prev === 0) return null;
+                    return ((curr - prev) / prev) * 100;
+                  }
+                  const di = delta(incNow, incPrev);
+                  const de = delta(expNow, expPrev);
+                  const db = delta(balNow, balPrev);
+                  const Pill = ({ label, value, invert }: any) => {
+                    if (value === null) {
+                      return (
+                        <View className="rounded-md bg-gray-100 px-2 py-1 dark:bg-gray-700">
+                          <Text className="text-[10px] text-gray-600 dark:text-gray-300">
+                            {label}: -
+                          </Text>
+                        </View>
+                      );
+                    }
+                    const positive = invert ? value < 0 : value > 0; // invert para despesas
+                    const color = positive
+                      ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300"
+                      : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300";
+                    return (
+                      <View className={`rounded-md px-2 py-1 ${color}`}>
+                        <Text className="text-[10px] font-semibold">
+                          {label}: {value > 0 ? "+" : ""}
+                          {value.toFixed(1)}%
+                        </Text>
+                      </View>
+                    );
+                  };
+                  return (
+                    <View>
+                      <Text className="mb-2 text-xs font-semibold text-gray-700 dark:text-gray-300">
+                        Comparativo últimos 6m vs 6m anteriores
+                      </Text>
+                      <View className="flex-row flex-wrap gap-2">
+                        <Pill label="Receitas" value={di} />
+                        <Pill label="Despesas" value={de} invert />
+                        <Pill label="Saldo" value={db} />
+                      </View>
+                      <Text className="mt-2 text-[10px] text-gray-500 dark:text-gray-400">
+                        Base: R$ {incPrev.toFixed(0)}→{incNow.toFixed(0)} / R$ {expPrev.toFixed(0)}→
+                        {expNow.toFixed(0)} / Saldo {balPrev.toFixed(0)}→{balNow.toFixed(0)}
+                      </Text>
+                    </View>
+                  );
+                })()}
+              </View>
+            )}
           </View>
         )}
 

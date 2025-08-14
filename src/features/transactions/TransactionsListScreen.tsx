@@ -49,11 +49,14 @@ export default function TransactionsListScreen() {
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
   const [csvSeparator, setCsvSeparator] = useState<string>(",");
   const [markTransfers, setMarkTransfers] = useState<boolean>(true);
+  const [tagsMode, setTagsMode] = useState<"ANY" | "ALL">("ANY");
+  const [includeTransfers, setIncludeTransfers] = useState(true);
   const lastUsedFilters = useAppStore((s) => s.lastUsedFilters);
   const setLastUsedFilters = useAppStore((s) => s.setLastUsedFilters);
   const savedFilters = useAppStore((s) => s.savedFilters);
   const addSavedFilter = useAppStore((s) => s.addSavedFilter);
   const removeSavedFilter = useAppStore((s) => s.removeSavedFilter);
+  const updateSavedFilterName = useAppStore((s) => s.updateSavedFilterName as any);
 
   const router = useRouter();
   const transactionDAO = TransactionDAO.getInstance();
@@ -175,6 +178,31 @@ export default function TransactionsListScreen() {
     let date_from: string | undefined;
     let date_to: string | undefined;
     switch (key) {
+      case "today": {
+        const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+        date_from = start.toISOString();
+        date_to = end.toISOString();
+        break;
+      }
+      case "week": {
+        // Considerar semana começando na segunda-feira
+        const day = now.getDay(); // 0 domingo
+        const diffToMonday = (day + 6) % 7; // transforma domingo (0) em 6
+        const start = new Date(
+          now.getFullYear(),
+          now.getMonth(),
+          now.getDate() - diffToMonday,
+          0,
+          0,
+          0
+        );
+        const end = new Date(start.getTime() + 6 * 24 * 60 * 60 * 1000);
+        end.setHours(23, 59, 59, 999);
+        date_from = start.toISOString();
+        date_to = end.toISOString();
+        break;
+      }
       case "7d": {
         const from = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
         date_from = from.toISOString();
@@ -259,6 +287,7 @@ export default function TransactionsListScreen() {
     filters.search_text ? 1 : 0,
     filters.tags?.length || 0,
     filters.is_pending !== undefined ? 1 : 0,
+    filters.include_transfers === false ? 1 : 0,
   ].reduce((a, b) => a + (b > 0 ? 1 : 0), 0);
 
   const handleDeleteTransaction = async (transaction: TransactionWithDetails) => {
@@ -469,7 +498,7 @@ export default function TransactionsListScreen() {
                 {savedFilters.map((sf) => (
                   <View
                     key={sf.id}
-                    className="mb-2 mr-2 flex-row items-center rounded-full border border-indigo-400 bg-indigo-50 px-3 py-1 dark:border-indigo-600 dark:bg-indigo-900/30"
+                    className="mb-2 mr-2 flex-row items-center rounded-full border border-indigo-400 bg-indigo-50 px-2 py-1 dark:border-indigo-600 dark:bg-indigo-900/30"
                   >
                     <TouchableOpacity
                       onPress={() => {
@@ -479,12 +508,36 @@ export default function TransactionsListScreen() {
                         loadTransactions(undefined, undefined, sf.filters);
                       }}
                     >
-                      <Text className="text-xs font-medium text-indigo-700 dark:text-indigo-300">
+                      <Text className="text-[11px] font-medium text-indigo-700 dark:text-indigo-300">
                         {sf.name}
                       </Text>
                     </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => {
+                        Alert.prompt?.(
+                          "Renomear Filtro",
+                          "Novo nome:",
+                          [
+                            { text: "Cancelar", style: "cancel" },
+                            {
+                              text: "Salvar",
+                              onPress: (text) => {
+                                if (text && text.trim().length > 0) {
+                                  updateSavedFilterName(sf.id, text.trim());
+                                }
+                              },
+                            },
+                          ],
+                          "plain-text",
+                          sf.name
+                        );
+                      }}
+                      className="ml-1"
+                    >
+                      <Ionicons name="create" size={11} color="#6366f1" />
+                    </TouchableOpacity>
                     <TouchableOpacity onPress={() => removeSavedFilter(sf.id)} className="ml-1">
-                      <Ionicons name="close" size={12} color="#6366f1" />
+                      <Ionicons name="close" size={11} color="#6366f1" />
                     </TouchableOpacity>
                   </View>
                 ))}
@@ -502,6 +555,15 @@ export default function TransactionsListScreen() {
           openAdvanced={() => setShowAdvancedModal(true)}
           clearFilters={clearFilters}
           activeFiltersCount={activeFiltersCount}
+          includeTransfers={includeTransfers}
+          toggleIncludeTransfers={() => {
+            const next = !includeTransfers;
+            setIncludeTransfers(next);
+            const updated: TransactionFilters = { ...filters, include_transfers: next };
+            setFilters(updated);
+            setLastUsedFilters(updated);
+            loadTransactions(undefined, undefined, updated);
+          }}
         />
       </View>
 
@@ -531,7 +593,14 @@ export default function TransactionsListScreen() {
               <TouchableOpacity
                 key={transaction.id}
                 onPress={() => router.push(`/transactions/${transaction.id}`)}
-                className="rounded-xl bg-white p-4 shadow-sm dark:bg-gray-800"
+                className={`rounded-xl p-4 shadow-sm ${
+                  transaction.type === "transfer"
+                    ? "border border-blue-300 bg-blue-50 dark:border-blue-600 dark:bg-blue-900/30"
+                    : "bg-white dark:bg-gray-800"
+                }`}
+                accessibilityLabel={`Transação ${getTransactionTypeLabel(
+                  transaction.type
+                )} valor ${formatCurrency(transaction.amount)}`}
               >
                 <View className="flex-row items-center justify-between">
                   <View className="flex-1 flex-row items-center">
@@ -579,9 +648,20 @@ export default function TransactionsListScreen() {
                       </View>
 
                       {transaction.type === "transfer" && transaction.destination_account_name && (
-                        <Text className="mt-1 text-sm text-blue-600 dark:text-blue-400">
-                          Para: {transaction.destination_account_name}
-                        </Text>
+                        <View className="mt-2 flex-row items-center rounded-md bg-blue-100 px-2 py-1 dark:bg-blue-700/40">
+                          <Text className="text-[11px] font-medium text-blue-800 dark:text-blue-200">
+                            {transaction.account_name}
+                          </Text>
+                          <Ionicons
+                            name="swap-horizontal"
+                            size={14}
+                            color={"#2563eb"}
+                            style={{ marginHorizontal: 6 }}
+                          />
+                          <Text className="text-[11px] font-medium text-blue-800 dark:text-blue-200">
+                            {transaction.destination_account_name}
+                          </Text>
+                        </View>
                       )}
 
                       {transaction.notes && (
@@ -695,6 +775,8 @@ export default function TransactionsListScreen() {
           setTempTags("");
           setTempPendingOnly(false);
           setSelectedCategoryIds([]);
+          setTagsMode("ANY");
+          setIncludeTransfers(true);
         }}
         onApply={() => {
           const updated: TransactionFilters = {
@@ -708,14 +790,20 @@ export default function TransactionsListScreen() {
                   .map((t) => t.trim())
                   .filter(Boolean)
               : undefined,
+            tags_mode: tagsMode,
             category_ids: selectedCategoryIds.length ? selectedCategoryIds : undefined,
             is_pending: tempPendingOnly ? true : undefined,
+            include_transfers: includeTransfers,
           };
           setFilters(updated);
           setLastUsedFilters(updated);
           setShowAdvancedModal(false);
           loadTransactions(undefined, undefined, updated);
         }}
+        tagsMode={tagsMode}
+        setTagsMode={setTagsMode}
+        includeTransfers={includeTransfers}
+        setIncludeTransfers={setIncludeTransfers}
       />
     </SafeAreaView>
   );

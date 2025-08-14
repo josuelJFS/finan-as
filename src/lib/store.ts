@@ -29,6 +29,7 @@ export interface AppState {
   addSavedFilter: (name: string, filters: TransactionFilters) => void;
   removeSavedFilter: (id: string) => void;
   clearSavedFilters: () => void;
+  updateSavedFilterName: (id: string, name: string) => void;
 
   // Biometria
   biometricEnabled: boolean;
@@ -75,6 +76,12 @@ export const useAppStore = create<AppState>()(
       removeSavedFilter: (id) =>
         set((state) => ({ savedFilters: state.savedFilters.filter((f) => f.id !== id) })),
       clearSavedFilters: () => set({ savedFilters: [] }),
+      updateSavedFilterName: (id, name) =>
+        set((state) => ({
+          savedFilters: state.savedFilters.map((f) =>
+            f.id === id ? { ...f, name, updated_at: new Date().toISOString() } : f
+          ),
+        })),
       setBiometricEnabled: (biometricEnabled) => set({ biometricEnabled }),
       setOnboardingCompleted: (onboardingCompleted) => set({ onboardingCompleted }),
     }),

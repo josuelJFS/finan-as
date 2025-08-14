@@ -20,6 +20,10 @@ export interface AdvancedFilterModalProps {
   setSelectedCategoryIds: (fn: (prev: string[]) => string[]) => void;
   onApply: () => void;
   onClear: () => void;
+  tagsMode: "ANY" | "ALL";
+  setTagsMode: (m: "ANY" | "ALL") => void;
+  includeTransfers: boolean;
+  setIncludeTransfers: (b: boolean) => void;
 }
 
 export const AdvancedFilterModal: React.FC<AdvancedFilterModalProps> = ({
@@ -40,6 +44,10 @@ export const AdvancedFilterModal: React.FC<AdvancedFilterModalProps> = ({
   setSelectedCategoryIds,
   onApply,
   onClear,
+  tagsMode,
+  setTagsMode,
+  includeTransfers,
+  setIncludeTransfers,
 }) => {
   return (
     <Modal visible={visible} animationType="slide" transparent>
@@ -105,6 +113,30 @@ export const AdvancedFilterModal: React.FC<AdvancedFilterModalProps> = ({
                 className="rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
                 placeholderTextColor="#9ca3af"
               />
+              {tempTags.trim().length > 0 && (
+                <View className="mt-2 flex-row rounded-md bg-gray-100 p-1 dark:bg-gray-700">
+                  {[
+                    { v: "ANY", l: "Qualquer" },
+                    { v: "ALL", l: "Todas" },
+                  ].map((opt) => (
+                    <TouchableOpacity
+                      key={opt.v}
+                      onPress={() => setTagsMode(opt.v as any)}
+                      className={`flex-1 rounded-md py-1 ${
+                        tagsMode === opt.v ? "bg-blue-500" : ""
+                      }`}
+                    >
+                      <Text
+                        className={`text-center text-[11px] font-medium ${
+                          tagsMode === opt.v ? "text-white" : "text-gray-600 dark:text-gray-300"
+                        }`}
+                      >
+                        {opt.l}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
             </View>
             <View className="mb-4 flex-row items-center">
               <TouchableOpacity
@@ -120,6 +152,23 @@ export const AdvancedFilterModal: React.FC<AdvancedFilterModalProps> = ({
                 )}
               </TouchableOpacity>
               <Text className="text-sm text-gray-700 dark:text-gray-300">Somente pendentes</Text>
+            </View>
+            <View className="mb-4 flex-row items-center">
+              <TouchableOpacity
+                onPress={() => setIncludeTransfers(!includeTransfers)}
+                className={`mr-3 h-6 w-6 items-center justify-center rounded border ${
+                  includeTransfers
+                    ? "border-green-500 bg-green-100 dark:border-green-400 dark:bg-green-600/30"
+                    : "border-gray-400 bg-white dark:border-gray-600 dark:bg-gray-700"
+                }`}
+              >
+                {includeTransfers && (
+                  <Text className="text-xs font-bold text-green-700 dark:text-green-300">✓</Text>
+                )}
+              </TouchableOpacity>
+              <Text className="text-sm text-gray-700 dark:text-gray-300">
+                Incluir transferências
+              </Text>
             </View>
             <View className="mb-4">
               <Text className="mb-2 text-xs font-semibold text-gray-600 dark:text-gray-300">
@@ -154,13 +203,25 @@ export const AdvancedFilterModal: React.FC<AdvancedFilterModalProps> = ({
               })}
             </View>
           </ScrollView>
-          <View className="mt-2 flex-row gap-3 pt-2">
+          <View className="mt-2 flex-row flex-wrap gap-3 pt-2">
             <TouchableOpacity
               onPress={onClear}
               className="flex-1 rounded-md bg-gray-200 py-3 dark:bg-gray-700"
             >
               <Text className="text-center font-semibold text-gray-900 dark:text-white">
                 Limpar
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => {
+                // Reset rápido (fecha e limpa tudo)
+                onClear();
+                onClose();
+              }}
+              className="flex-1 rounded-md bg-gray-300 py-3 dark:bg-gray-600"
+            >
+              <Text className="text-center font-semibold text-gray-800 dark:text-gray-200">
+                Reset Rápido
               </Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={onApply} className="flex-1 rounded-md bg-blue-500 py-3">

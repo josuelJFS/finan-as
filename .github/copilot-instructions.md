@@ -133,11 +133,11 @@ Benefício: aceleração de filtros por período/conta/categoria/tipo e cálculo
 
 ## PENDENTES OBRIGATÓRIOS 1.0
 
-❌ Alertas de orçamento consolidados (lista de categorias em risco / excedidas)  
-❌ Filtros avançados Fase 2 (UX refinada, presets, AND/OR tags, destaque transfers, reset rápido)  
+✅ Alertas de orçamento consolidados (painel unificado na tela de Orçamentos)  
+🔶 Filtros avançados Fase 2 (parcial: AND/OR tags, incluir/excluir transferências, reset rápido, presets de intervalo (hoje/semana) e toggle rápido de transferências adicionados)  
 🔶 Invalidação seletiva cache de orçamentos (categoria/período) – fase 2 (parcial: invalidação por transações despesas implementada)
-🔶 Dashboard melhorias: linha tendência visual + comparativos extras  
-🔶 Export CSV v2: formatação regional números pendente
+🔶 Dashboard melhorias: comparativo 6m vs 6m anterior adicionado (restam comparativos adicionais)  
+✅ Export CSV v2: formatação regional números (locale pt-BR, separador decimal conforme) concluída
 
 ## OPCIONAIS (PÓS 1.0)
 
@@ -256,7 +256,7 @@ return (
 
 1. ❌ Invalidação seletiva cache budgets (fase 2)
 2. ❌ Alertas de orçamento consolidados (painel unificado)
-3. ❌ Filtros avançados Fase 2 (UX + presets + tags AND/OR + reset rápido)
+3. 🔶 Filtros avançados Fase 2 (restante: chips resumo refinados (compactação + contagens), melhoria UX rename cross-platform – fallback iOS, agrupamento de presets em menu)
 4. 🔶 Export CSV v2: formatação regional de números
 5. 🔶 Dashboard: visualização gráfica da linha de tendência + comparativo 6/12m adicional
 6. 🟡 Goals (opcional pós 1.0)

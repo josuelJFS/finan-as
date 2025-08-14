@@ -156,7 +156,9 @@ export interface TransactionFilters {
   amount_max?: number;
   search_text?: string;
   tags?: string[];
+  tags_mode?: "ANY" | "ALL"; // novo: combinar tags (OR = ANY, AND = ALL)
   is_pending?: boolean;
+  include_transfers?: boolean; // quando false, exclui type = 'transfer'
 }
 
 export interface SavedFilter extends BaseEntity {

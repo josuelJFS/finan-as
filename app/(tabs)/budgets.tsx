@@ -130,6 +130,75 @@ export default function BudgetsScreen() {
         className="flex-1"
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
+        {/* Painel Consolidado de Alertas */}
+        {budgetProgressList.some(
+          (p) => p.percentage >= p.budget.alert_percentage || p.percentage >= 100
+        ) && (
+          <View className="mx-4 mt-4 rounded-xl bg-white p-4 shadow-sm dark:bg-gray-800">
+            <Text className="mb-3 text-base font-semibold text-gray-900 dark:text-white">
+              Alertas de Orçamentos
+            </Text>
+            <View className="space-y-3">
+              {budgetProgressList
+                .filter((p) => p.percentage >= p.budget.alert_percentage || p.percentage >= 100)
+                .sort((a, b) => b.percentage - a.percentage)
+                .slice(0, 10)
+                .map((p) => {
+                  const exceeded = p.percentage >= 100;
+                  const critical = exceeded;
+                  return (
+                    <TouchableOpacity
+                      key={p.budget.id}
+                      onPress={() => router.push(`/budgets/create?id=${p.budget.id}`)}
+                      className={`rounded-lg border p-3 ${
+                        critical
+                          ? "border-red-300 bg-red-50 dark:border-red-700 dark:bg-red-900/30"
+                          : "border-yellow-300 bg-yellow-50 dark:border-yellow-700 dark:bg-yellow-900/20"
+                      }`}
+                    >
+                      <View className="flex-row items-center justify-between">
+                        <View className="flex-1 pr-2">
+                          <Text
+                            className={`text-sm font-medium ${
+                              critical
+                                ? "text-red-700 dark:text-red-300"
+                                : "text-yellow-700 dark:text-yellow-300"
+                            }`}
+                            numberOfLines={1}
+                          >
+                            {p.budget.category_id
+                              ? (p.budget as any).category_name || "Categoria"
+                              : p.budget.name || "Geral"}
+                          </Text>
+                          <Text className="text-[11px] text-gray-600 dark:text-gray-400">
+                            {p.percentage.toFixed(0)}% usado • Gasto {formatCurrency(p.spent)} de{" "}
+                            {formatCurrency(p.budget.amount)}
+                          </Text>
+                        </View>
+                        <View className="flex-row items-center">
+                          <Ionicons
+                            name={critical ? "warning" : "alert-circle"}
+                            size={16}
+                            color={critical ? "#dc2626" : "#d97706"}
+                          />
+                          <Text
+                            className={`ml-1 text-xs font-semibold ${
+                              critical
+                                ? "text-red-700 dark:text-red-300"
+                                : "text-yellow-700 dark:text-yellow-300"
+                            }`}
+                          >
+                            {critical ? "Excedido" : `${p.budget.alert_percentage}%+`}
+                          </Text>
+                        </View>
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })}
+            </View>
+          </View>
+        )}
+
         {budgetProgressList.length > 0 ? (
           <View className="space-y-4 p-4">
             {budgetProgressList.map((progress) => {

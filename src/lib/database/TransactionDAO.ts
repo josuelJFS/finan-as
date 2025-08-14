@@ -508,14 +508,19 @@ export class TransactionDAO {
     }
 
     if (filters?.tags && filters.tags.length > 0) {
-      // Busca simples: qualquer uma das tags presentes no array JSON (armazenado como string)
-      // Forma: tags LIKE '%"tag"%'
-      const tagConditions: string[] = [];
+      const mode = filters.tags_mode || "ANY";
+      const tagConds: string[] = [];
       for (const tag of filters.tags) {
-        tagConditions.push("tags LIKE ?");
+        tagConds.push("tags LIKE ?");
         params.push(`%"${tag}"%`);
       }
-      conditions.push(`(${tagConditions.join(" OR ")})`);
+      conditions.push(
+        mode === "ALL" ? tagConds.map((c) => `(${c})`).join(" AND ") : `(${tagConds.join(" OR ")})`
+      );
+    }
+
+    if (filters && filters.include_transfers === false) {
+      conditions.push("type != 'transfer'");
     }
 
     if (filters?.is_pending !== undefined) {

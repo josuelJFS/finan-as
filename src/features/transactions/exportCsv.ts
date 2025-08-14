@@ -10,10 +10,12 @@ export interface ExportCsvOptions {
 // Gera CSV das transações filtradas e retorna o caminho do arquivo temporário
 export async function exportTransactionsCsv(
   filters?: TransactionFilters,
-  options?: ExportCsvOptions
+  options?: ExportCsvOptions & { locale?: string; regionalFormatting?: boolean }
 ): Promise<string> {
   const separator = options?.separator || ",";
   const includeTransferMarker = options?.includeTransferMarker !== false; // default true
+  const locale = options?.locale || "pt-BR";
+  const regional = options?.regionalFormatting !== false; // ativa por padrão
   const transactionDAO = TransactionDAO.getInstance();
   const accountDAO = AccountDAO.getInstance();
   const categoryDAO = CategoryDAO.getInstance();
@@ -41,6 +43,23 @@ export async function exportTransactionsCsv(
   ];
   if (includeTransferMarker) header.push("transferencia");
 
+  const useDecimalComma = regional && separator === ";" && locale.startsWith("pt");
+
+  function formatNumber(n: number) {
+    if (!regional) return n.toString();
+    if (useDecimalComma) {
+      // Formata com Intl e depois remove separador de milhar para evitar conflitos em alguns parsers
+      const f = new Intl.NumberFormat(locale, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }).format(n);
+      // Garantir: milhar '.' decimal ','
+      return f;
+    }
+    // Caso padrão: usar ponto decimal (locale en-US para estabilidade)
+    return n.toFixed(2);
+  }
+
   const rows = transactions.map((t) => {
     const base = [
       t.id,
@@ -48,7 +67,7 @@ export async function exportTransactionsCsv(
       accountMap.get(t.account_id)?.name || "",
       t.destination_account_id ? accountMap.get(t.destination_account_id)?.name || "" : "",
       t.category_id ? categoryMap.get(t.category_id)?.name || "" : "",
-      (t.type === "expense" ? -t.amount : t.amount).toString(),
+      formatNumber(t.type === "expense" ? -t.amount : t.amount),
       sanitize(t.description),
       t.occurred_at,
       t.is_pending ? "1" : "0",
