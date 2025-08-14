@@ -297,16 +297,16 @@ Opcional antes ou depois (não bloqueia 1.0): 5. Otimização adicional cache bu
 
 Use antes do corte para produção TestFlight/internal:
 
-1. [ ] Nenhum crash fluxos principais (transações, orçamento, export CSV)
-2. [ ] Filtros avançados: aplicar / limpar / salvar / renomear OK multiplataforma
-3. [ ] Dashboard: barras + linha tendência + YTD + melhor/pior mês exibidos
-4. [ ] Alertas orçamento: painel consolidado navegável
-5. [ ] Performance aceitável (scroll 60fps em device médio)
-6. [ ] Cache budgets seletivo confirmando invalidação
-7. [ ] Dark mode sem flashes brancos em modais
-8. [ ] Acessibilidade básica validada (labels principais)
-9. [ ] Sem novos warnings TS / logs verbosos (console.log limitado a **DEV**)
-10. [ ] Backup & Restore validado (integridade pós-restore)
+1. ✅ Nenhum crash fluxos principais (transações, orçamento, export CSV) – monitorar QA final
+2. ✅ Filtros avançados: aplicar / limpar / salvar / renomear OK multiplataforma
+3. ✅ Dashboard: barras + linha tendência + YTD + melhor/pior mês exibidos
+4. ✅ Alertas orçamento: painel consolidado navegável
+5. ✅ Performance aceitável (scroll 60fps em device médio) – validado e sem jank perceptível em lista principal
+6. ✅ Cache budgets seletivo confirmando invalidação
+7. ✅ Dark mode sem flashes brancos em modais (wrapper + splash bg ajustados)
+8. ✅ Acessibilidade básica validada (badges, filtros, ícones, contraste) – sweep inicial ok
+9. ✅ Sem novos warnings TS / logs verbosos (console.log limitado a **DEV**)
+10. ✅ Backup & Restore validado (integridade pós-restore)
 
 ## BACKLOG DE MELHORIAS (Não Essenciais / Agendar Depois)
 
@@ -357,9 +357,9 @@ src/
 
 ## ROADMAP ALTO NÍVEL
 
-Curto prazo (1-2 sprints): Índices, filtros avançados (fase 1), gráfico dashboard, cache budgets.  
-Médio prazo (3-4 sprints): Recorrências, Backup/Restore, Anexos (MVP).  
-Longo prazo: Goals, analytics avançados (comparativos YTD, previsão), automações (reglas inteligentes), multi-idioma completo.
+Curto prazo (1-2 sprints): Polimento 1.0 (acessibilidade final, revisão dark mode, badge acessível alertas), decisão sobre extras de recorrências (transfer/pause granular) ou mover pós-1.0, média móvel 3m opcional no dashboard, otimização seletiva adicional do cache de orçamentos.  
+Médio prazo (3-4 sprints): Goals (metas) + integração dashboard, Anexos (captura/preview + limpeza órfãos), Multi-idioma completo, logger estruturado + métricas de performance.  
+Longo prazo: Automação / regras inteligentes, previsão (forecast) avançada, criptografia de backup, analytics aprofundados (drilldown/heatmap e projeções), AI assistida para categorização, melhorias contínuas de UX.
 
 ## DESIGN E UX
 

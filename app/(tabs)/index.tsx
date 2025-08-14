@@ -254,7 +254,7 @@ export default function DashboardScreen() {
         {/* Gráfico Entradas vs Saídas */}
         {monthlyTrends.length > 1 && (
           <View className="mx-4 mt-6">
-            <MonthlyTrendsChart data={monthlyTrends} months={6} showTrendLine />
+            <MonthlyTrendsChart data={monthlyTrends} months={6} showTrendLine showMovingAverage />
             {monthlyTrends.length >= 12 && (
               <View className="mt-4 rounded-lg bg-white p-4 dark:bg-gray-800">
                 {(() => {

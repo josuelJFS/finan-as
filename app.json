@@ -10,7 +10,7 @@
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#0f172a"
     },
     "assetBundlePatterns": ["**/*"],
     "ios": {
@@ -19,7 +19,7 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#0f172a"
       },
       "edgeToEdgeEnabled": true
     },
@@ -28,11 +28,6 @@
       "bundler": "metro"
     },
     "scheme": "appfinanca",
-    "plugins": [
-      "expo-router",
-      "expo-sqlite",
-      "expo-secure-store",
-      "expo-local-authentication"
-    ]
+    "plugins": ["expo-router", "expo-sqlite", "expo-secure-store", "expo-local-authentication"]
   }
 }

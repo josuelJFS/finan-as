@@ -7,6 +7,7 @@ interface Props {
   data: MonthlyTrend[];
   months?: number; // quantos últimos meses exibir
   showTrendLine?: boolean;
+  showMovingAverage?: boolean; // média móvel 3m sobre saldo
 }
 
 // Gráfico simples de barras duplas (income vs expenses) sem libs externas (layout flex)
@@ -14,6 +15,7 @@ export const MonthlyTrendsChart: React.FC<Props> = ({
   data,
   months = 6,
   showTrendLine = false,
+  showMovingAverage = false,
 }) => {
   if (!data || data.length === 0) {
     return (
@@ -39,6 +41,7 @@ export const MonthlyTrendsChart: React.FC<Props> = ({
 
   // Regressão linear sobre saldo (income - expenses) para linha de tendência
   let trendPoints: { x: number; y: number }[] = [];
+  let maPoints: { x: number; y: number }[] = [];
   if (showTrendLine && recent.length >= 2) {
     const pts = recent.map((d, i) => ({ x: i, y: d.balance }));
     const n = pts.length;
@@ -57,6 +60,15 @@ export const MonthlyTrendsChart: React.FC<Props> = ({
         // (não alteramos maxValue para não distorcer barras; linha poderá tocar topo)
       }
     }
+  }
+
+  // Média móvel 3m do saldo
+  if (showMovingAverage && recent.length >= 3) {
+    maPoints = recent.map((_, idx) => {
+      const slice = recent.slice(Math.max(0, idx - 2), idx + 1); // últimas até 3
+      const avg = slice.reduce((s, m) => s + m.balance, 0) / slice.length;
+      return { x: idx, y: avg };
+    });
   }
 
   return (
@@ -112,35 +124,62 @@ export const MonthlyTrendsChart: React.FC<Props> = ({
             );
           })}
         </View>
-        {showTrendLine && trendPoints.length === recent.length && (
+        {(showTrendLine || showMovingAverage) && (
           <View className="pointer-events-none absolute left-0 right-0 top-0 h-[96px]">
-            {trendPoints.map((p, i) => {
-              if (i === 0) return null;
-              const prev = trendPoints[i - 1];
-              const containerWidth = 100; // será ajustado via flex (usamos porcentagens)
-              // posição horizontal proporcional
-              const x1 = (prev.x / (trendPoints.length - 1)) * 100;
-              const x2 = (p.x / (trendPoints.length - 1)) * 100;
-              const y1 = 80 - (prev.y / maxValue) * 80;
-              const y2 = 80 - (p.y / maxValue) * 80;
-              const dx = x2 - x1;
-              const dy = y2 - y1;
-              const length = Math.sqrt(dx * dx + dy * dy);
-              const angle = Math.atan2(dy, dx) * (180 / Math.PI);
-              return (
-                <View
-                  key={i}
-                  style={{
-                    position: "absolute",
-                    left: `${x1}%`,
-                    top: y1,
-                    width: `${length}%`,
-                    transform: [{ rotate: `${angle}deg` }],
-                  }}
-                  className="h-[2px] bg-blue-500/70 dark:bg-blue-300"
-                />
-              );
-            })}
+            {showTrendLine &&
+              trendPoints.length === recent.length &&
+              trendPoints.map((p, i) => {
+                if (i === 0) return null;
+                const prev = trendPoints[i - 1];
+                const x1 = (prev.x / (trendPoints.length - 1)) * 100;
+                const x2 = (p.x / (trendPoints.length - 1)) * 100;
+                const y1 = 80 - (prev.y / maxValue) * 80;
+                const y2 = 80 - (p.y / maxValue) * 80;
+                const dx = x2 - x1;
+                const dy = y2 - y1;
+                const length = Math.sqrt(dx * dx + dy * dy);
+                const angle = Math.atan2(dy, dx) * (180 / Math.PI);
+                return (
+                  <View
+                    key={"trend-" + i}
+                    style={{
+                      position: "absolute",
+                      left: `${x1}%`,
+                      top: y1,
+                      width: `${length}%`,
+                      transform: [{ rotate: `${angle}deg` }],
+                    }}
+                    className="h-[2px] bg-blue-500/70 dark:bg-blue-300"
+                  />
+                );
+              })}
+            {showMovingAverage &&
+              maPoints.length === recent.length &&
+              maPoints.map((p, i) => {
+                if (i === 0) return null;
+                const prev = maPoints[i - 1];
+                const x1 = (prev.x / (maPoints.length - 1)) * 100;
+                const x2 = (p.x / (maPoints.length - 1)) * 100;
+                const y1 = 80 - (prev.y / maxValue) * 80;
+                const y2 = 80 - (p.y / maxValue) * 80;
+                const dx = x2 - x1;
+                const dy = y2 - y1;
+                const length = Math.sqrt(dx * dx + dy * dy);
+                const angle = Math.atan2(dy, dx) * (180 / Math.PI);
+                return (
+                  <View
+                    key={"ma-" + i}
+                    style={{
+                      position: "absolute",
+                      left: `${x1}%`,
+                      top: y1,
+                      width: `${length}%`,
+                      transform: [{ rotate: `${angle}deg` }],
+                    }}
+                    className="h-[2px] bg-purple-500/70 dark:bg-purple-300"
+                  />
+                );
+              })}
           </View>
         )}
       </View>
@@ -157,6 +196,12 @@ export const MonthlyTrendsChart: React.FC<Props> = ({
           <View className="flex-row items-center">
             <View className="mr-1 h-[2px] w-4 bg-blue-500 dark:bg-blue-300" />
             <Text className="text-xs text-gray-600 dark:text-gray-400">Tendência</Text>
+          </View>
+        )}
+        {showMovingAverage && (
+          <View className="flex-row items-center">
+            <View className="mr-1 h-[2px] w-4 bg-purple-500 dark:bg-purple-300" />
+            <Text className="text-xs text-gray-600 dark:text-gray-400">Média 3m</Text>
           </View>
         )}
       </View>

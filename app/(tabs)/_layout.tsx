@@ -5,6 +5,10 @@ import { useEffect, useState } from "react";
 import { BudgetDAO } from "../../src/lib/database/BudgetDAO";
 import { Events } from "../../src/lib/events";
 import { useAppStore } from "../../src/lib/store";
+import {
+  buildFiltersAccessibilityLabel,
+  countActiveFilters,
+} from "../../src/features/transactions/filtersUtil";
 // Nota: reorganizado imports para incluir store e events antes
 
 export default function TabLayout() {
@@ -85,7 +89,7 @@ export default function TabLayout() {
                     alignItems: "center",
                     justifyContent: "center",
                   }}
-                  accessibilityLabel="Filtros ativos"
+                  accessibilityLabel={`${countActiveFilters(lastUsedFilters)} grupos de filtros ativos. ${buildFiltersAccessibilityLabel(lastUsedFilters)}`}
                 >
                   <Text style={{ color: "white", fontSize: 9, fontWeight: "600" }}>•</Text>
                 </View>
@@ -115,6 +119,7 @@ export default function TabLayout() {
                     alignItems: "center",
                     justifyContent: "center",
                   }}
+                  accessibilityLabel={`${budgetAlerts} orçamentos em alerta`}
                 >
                   <Text style={{ color: "white", fontSize: 10, fontWeight: "600" }}>
                     {budgetAlerts > 99 ? "99+" : budgetAlerts}

@@ -148,7 +148,7 @@ export default function DashboardScreen() {
       )}
       {!loading && !error && visible.length > 0 && (
         <View className="space-y-4">
-          <MonthlyTrendsChart data={trends} months={range} showTrendLine />
+          <MonthlyTrendsChart data={trends} months={range} showTrendLine showMovingAverage />
           <View className="rounded-xl bg-white p-4 dark:bg-gray-800">
             <Text className="mb-2 text-base font-semibold text-gray-900 dark:text-white">
               Tendência do Saldo
