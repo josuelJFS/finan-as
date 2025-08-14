@@ -3,6 +3,9 @@ Mantido atualizado: Agosto 2025. -->
 
 # AppFinança - Personal Finance App
 
+**Legenda de Status (1.0):**
+✅ = Concluído | ❌ = Faltando (Obrigatório p/ 1.0) | 🟡 = Opcional / Pós 1.0 | 🔶 = Parcial (ainda exige complemento)
+
 ## MANIFESTO DE DESIGN & UX (Adicionar em toda nova feature)
 
 Objetivo: cada tela deve ser clara em 5s, executável em até 3 toques para a ação principal e consistente em todos os estados (loading, vazio, erro, sucesso).
@@ -65,20 +68,23 @@ Aplicativo de finanças pessoais, offline-first, usando Expo (React Native + Typ
 - ⚠️ i18n: pt-BR por padrão, pronto para multi-idioma
 - ⚠️ Performance: listas virtualizadas, memoização, índices no SQLite
 
-## FUNCIONALIDADES OBRIGATÓRIAS (Snapshot)
+## FUNCIONALIDADES (Visão 1.0)
 
-1. ⚠️ **Onboarding**: básico (moeda, tema, conta) – falta refinamento de preferências adicionais
-2. ✅ **CRUD de contas**: saldo inicial, tipos, saldo total, pull-to-refresh
-3. ✅ **CRUD de categorias**: hierarquia + tipos, pull-to-refresh
-4. ✅ **CRUD de transações**: despesas, receitas, transferências (atomic balance update) + notas + tags (UI básica) (anexos ainda não)
-5. ✅ **Busca e filtros**: básicos (período, tipo, contas) + avançados fase 1 (categoria múltipla, texto, tags, faixa valor, pendentes) + filtros salvos (criar/aplicar/remover) – (fase 2: UX refinada, agrupamento, excluir transfers separadamente, presets)
-6. ✅ **Orçamentos (Budgets)**: CRUD + progresso + alertas básicos (otimização/cache & alertas globais avançados pendentes)
-7. ❌ **Metas (Goals)**: não iniciado
-8. ❌ **Transações recorrentes**: não iniciado (engine + materialização idempotente)
-9. ⚠️ **Dashboard**: KPIs básicos + badge de filtros ativos + alertas de orçamento iniciais (gráficos comparativos/trends pendentes)
-10. ❌ **Anexos**: captura/visualização
-11. ❌ **Backup/restore**: export/import JSON + validação
-12. ✅ **Exportação CSV**: transações filtradas + compartilhamento (melhorias: incluir tags, formatação regional de números, opção separar transferências)
+1. ✅ **Onboarding** (básico ok – refinar preferências depois 🟡)
+2. ✅ **CRUD de contas**
+3. ✅ **CRUD de categorias**
+4. ✅ **CRUD de transações** (despesas/receitas/transferências + notas + tags básicas)
+5. ✅ **Busca e filtros Fase 1** (período, tipo, contas, multi categoria, texto, tags, faixa valor, pendentes, filtros salvos)
+6. ✅ **Orçamentos** (CRUD + progresso + alertas básicos + cache fase 1)
+7. ❌ **Transações recorrentes (engine + materialização idempotente)**
+8. ❌ **Backup & Restore (export/import JSON + validação)**
+9. 🔶 **Dashboard** (básico pronto; faltam comparativos adicionais / toggle 6-12m / linha tendência)
+10. ❌ **Alertas de orçamento consolidados (painel unificado)**
+11. 🔶 **Exportação CSV v2** (tags + separador + marcador transfer OK; falta formatação regional números)
+12. ❌ **Filtros avançados Fase 2** (UX chips refinada, presets rápidos, AND/OR tags, destaque transfers, reset 1 toque)
+13. 🟡 **Metas (Goals)** (postergável para pós 1.0 se necessário)
+14. 🟡 **Anexos** (captura/preview/limpeza órfãos – MVP pós 1.0)
+15. 🟡 **Multi-idioma completo (além pt-BR)**
 
 ## MODELAGEM DE DADOS (SQLite)
 
@@ -122,29 +128,37 @@ Benefício: aceleração de filtros por período/conta/categoria/tipo e cálculo
 ✅ Query de progresso de orçamentos otimizada (redução de round-trips)
 ✅ Cache incremental de progresso de orçamentos (tabela budget_progress_cache + invalidação simples por transação)
 
-## FLUXOS CRÍTICOS PENDENTES
+## PENDENTES OBRIGATÓRIOS 1.0
 
-✅ Filtros avançados (fase 1 implementada: categoria, tags, faixa valor, texto, pendentes)
-✅ Índices SQLite iniciais + complementares (migrations 001-002, criação tolerante a lock com retry/background)
-⚠️ Filtros avançados fase 2: UX de chips componetizada, presets rápidos, destaque de transferências opcional, operador E/OU para tags
-✅ Cache incremental de progresso de orçamento (fase 1 - limpeza total on transactions:changed; otimização seletiva pendente)
-❌ Materialização de recorrências na abertura / agendamento (idempotente)
-❌ Alertas de orçamento consolidados (dashboard + badges em abas)
-❌ Metas (CRUD + cálculo progresso)
-❌ Engine de recorrências (UI + parser de frequência)
-❌ Backup/Restore (JSON + verificação de schema + versão)
-❌ Anexos (armazenamento seguro + preview + limpeza órfãos)
-❌ Export CSV v2 (tags coluna separada, sinalização clara de transferências, separador configurável)
+❌ Recorrências (engine + parser + materialização idempotente na abertura)
+❌ Backup & Restore (export JSON versionado + import com validação e overwrite seguro)
+❌ Alertas de orçamento consolidados (lista de categorias em risco / excedidas)
+❌ Filtros avançados Fase 2 (UX refinada, presets, AND/OR tags, destaque transfers, reset rápido)
+❌ Invalidação seletiva cache de orçamentos (categoria/período) – fase 2
+❌ Dashboard melhorias: toggle 6/12 meses + linha tendência simples
+🔶 Export CSV v2: formatação regional números pendente
+
+## OPCIONAIS (PÓS 1.0)
+
+🟡 Goals (CRUD + progresso + integração dashboard)
+🟡 Anexos (captura, preview, limpeza órfãos)
+🟡 Multi-idioma completo
+🟡 Heatmap / drilldown avançado no Dashboard
+🟡 Automação / regras inteligentes futuras
+🟡 Criptografia de backup
+🟡 TagInput avançado + CategoryPill estética
+🟡 Métricas de performance / logger estruturado avançado
 
 ## COMPONENTES REUTILIZÁVEIS
 
-✅ MoneyInput (valores)  
-✅ DatePicker (datas)  
-✅ CategorySelector (modal)  
-✅ AccountSelector (modal)  
-⚠️ FilterChips (inline em Transações – extrair para componente isolado)  
-❌ CategoryPill (para uso em listas / filtros avançados)  
-❌ TagInput (planejado para filtros e edição de transação futura)
+✅ MoneyInput  
+✅ DatePicker  
+✅ CategorySelector  
+✅ AccountSelector  
+✅ FilterChips (extraído)  
+✅ AdvancedFilterModal (extraído)  
+❌ CategoryPill  
+🟡 TagInput (planejado)
 
 ### 🎨 PADRÃO DE BOTÕES EM FORMULÁRIOS (OBRIGATÓRIO)
 
@@ -222,30 +236,34 @@ return (
 - Componentes reutilizáveis: MoneyInput, DatePicker, AccountSelector, CategorySelector
 - Padrão de botões em formulários documentado e implementado
 
-### ⚠️ EM PROGRESSO (Passo 5)
+### 🔶 EM PROGRESSO (Passo 5)
 
-- Gráficos e KPIs adicionais no Dashboard (comparativo mês anterior, linha de tendência)
-- Cache incremental de progresso de orçamentos (fase 2 otimização seletiva por categoria/período)
-- Extração de componentes (FilterChips / AdvancedFilterModal)
+- Dashboard melhorias (toggle período / linha tendência)
+- Cache de orçamentos fase 2 (invalidação seletiva)
+- Export CSV v2 (finalizar formatação números)
 
 ### ❌ PENDENTE (Passo 5-9)
 
-- Dashboard avançado (drilldown, comparativos, heatmap de dias)
-- Filtros avançados fase 2 (UX, presets, lógica tags E/OU, quick reset)
-- Alertas de orçamento consolidados (dashboard + badges em abas)
-- Transações recorrentes (engine + UI)
-- Anexos (captura, galeria, limpeza)
-- Backup e restore (JSON + criptografia opcional)
-- Metas (goals) + integração no dashboard
+- Recorrências (engine + UI)
+- Backup & Restore
+- Alertas de orçamento consolidados
+- Filtros avançados fase 2
+- Invalidação seletiva cache budgets
+- Dashboard: melhorias (comparativos extras / linha)
+- (Opcional) Goals
+- (Opcional) Anexos
 
-## PRIORIDADES IMEDIATAS (Atual)
+## PRIORIDADES IMEDIATAS (Atualizadas)
 
-1. Dashboard: gráfico Entradas vs Saídas (últimos 6-12 meses) + comparação mês anterior
-2. Export CSV v2 (coluna tags separada, marcação de transferências, separador configurável)
-3. Refator: extrair FilterChips e AdvancedFilterModal para `components/`
-4. Cache budgets fase 2: invalidação seletiva (categoria/período) + pré-hidratação lazy
+1. ❌ Recorrências (engine + materialização) – base
+2. ❌ Backup & Restore (fluxo mínimo)
+3. ❌ Invalidação seletiva cache budgets
+4. 🔶 Dashboard: toggle 6/12m + linha tendência
+5. ❌ Filtros avançados Fase 2 (após refactor concluído ✅)
+6. 🔶 Export CSV v2: formatação números
+7. ❌ Alertas de orçamento consolidados (painel)
 
-✅ Concluído recentemente: Badge de alerta de orçamento na Tab (escuta de eventos de progresso)
+✅ Concluído recentemente: Extração FilterChips + AdvancedFilterModal; Deltas mês atual vs anterior no gráfico; Badge alerta orçamento
 
 ## BACKLOG DE MELHORIAS (Não Essenciais / Agendar Depois)
 

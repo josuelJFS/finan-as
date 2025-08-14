@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { useRouter, useFocusEffect } from "expo-router";
 import { useCallback } from "react";
 import { AccountDAO, TransactionDAO, BudgetDAO } from "../../src/lib/database";
+import { MonthlyTrendsChart } from "../../src/components";
 import { Events } from "../../src/lib/events";
 import { formatCurrency } from "../../src/lib/utils";
 import type { Account, BalanceSummary } from "../../src/types/entities";
@@ -19,6 +20,7 @@ export default function DashboardScreen() {
   const [budgetAlerts, setBudgetAlerts] = useState<
     { id: string; name: string; percentage: number; remaining: number }[]
   >([]);
+  const [monthlyTrends, setMonthlyTrends] = useState<any[]>([]);
 
   const accountDAO = AccountDAO.getInstance();
   const transactionDAO = TransactionDAO.getInstance();
@@ -102,6 +104,14 @@ export default function DashboardScreen() {
 
       const totalIncome = incomeTransactions.reduce((sum, t) => sum + t.amount, 0);
       const totalExpenses = expenseTransactions.reduce((sum, t) => sum + t.amount, 0);
+
+      // Tendências mensais (últimos 12 meses) para gráfico
+      try {
+        const trends = await transactionDAO.getMonthlyTrends(12);
+        setMonthlyTrends(trends);
+      } catch (e) {
+        console.warn("Falha ao carregar tendências mensais", e);
+      }
 
       // Orçamentos em alerta (top 3 por %)
       try {
@@ -202,6 +212,13 @@ export default function DashboardScreen() {
                 </Text>
               </View>
             </View>
+          </View>
+        )}
+
+        {/* Gráfico Entradas vs Saídas */}
+        {monthlyTrends.length > 1 && (
+          <View className="mx-4 mt-6">
+            <MonthlyTrendsChart data={monthlyTrends} months={6} />
           </View>
         )}
 

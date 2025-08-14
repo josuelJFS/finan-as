@@ -18,6 +18,7 @@ import { useRouter, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { TransactionDAO, AccountDAO, CategoryDAO } from "../../lib/database";
 import { exportTransactionsCsv } from "./exportCsv";
+import { FilterChips, AdvancedFilterModal } from "../../components";
 import { formatCurrency } from "../../lib/utils";
 import type { Transaction, Account, Category, TransactionFilters } from "../../types/entities";
 import { useAppStore } from "../../lib/store";
@@ -46,6 +47,8 @@ export default function TransactionsListScreen() {
   const [tempTags, setTempTags] = useState<string>("");
   const [tempPendingOnly, setTempPendingOnly] = useState<boolean>(false);
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
+  const [csvSeparator, setCsvSeparator] = useState<string>(",");
+  const [markTransfers, setMarkTransfers] = useState<boolean>(true);
   const lastUsedFilters = useAppStore((s) => s.lastUsedFilters);
   const setLastUsedFilters = useAppStore((s) => s.setLastUsedFilters);
   const savedFilters = useAppStore((s) => s.savedFilters);
@@ -356,7 +359,10 @@ export default function TransactionsListScreen() {
           <TouchableOpacity
             onPress={async () => {
               try {
-                const path = await exportTransactionsCsv(filters);
+                const path = await exportTransactionsCsv(filters, {
+                  separator: csvSeparator.trim() || ",",
+                  includeTransferMarker: markTransfers,
+                });
                 // Tentar compartilhamento imediato
                 let shared = false;
                 try {
@@ -403,6 +409,44 @@ export default function TransactionsListScreen() {
               Exportar CSV
             </Text>
           </TouchableOpacity>
+          {/* Config rápida CSV */}
+          <View className="mb-2 mr-3 flex-row items-center">
+            <Text className="mr-1 text-[10px] text-gray-600 dark:text-gray-400">Sep</Text>
+            <TextInput
+              value={csvSeparator}
+              onChangeText={setCsvSeparator}
+              className="mr-1 w-8 rounded border border-gray-300 px-1 py-1 text-center text-[10px] dark:border-gray-600 dark:text-gray-100"
+              maxLength={2}
+              placeholder=","
+            />
+            <TouchableOpacity
+              onPress={() => setCsvSeparator(",")}
+              className="mr-1 rounded border border-gray-300 px-1 py-[2px] dark:border-gray-600"
+            >
+              <Text className="text-[10px] text-gray-600 dark:text-gray-300">,</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => setCsvSeparator(";")}
+              className="mr-2 rounded border border-gray-300 px-1 py-[2px] dark:border-gray-600"
+            >
+              <Text className="text-[10px] text-gray-600 dark:text-gray-300">;</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => setMarkTransfers((v) => !v)}
+              className="flex-row items-center"
+            >
+              <View
+                className={`mr-1 h-4 w-4 items-center justify-center rounded border ${
+                  markTransfers
+                    ? "border-blue-500 bg-blue-500"
+                    : "border-gray-400 dark:border-gray-600"
+                }`}
+              >
+                {markTransfers && <Text className="text-[9px] font-bold text-white">✓</Text>}
+              </View>
+              <Text className="text-[10px] text-gray-600 dark:text-gray-300">Transf</Text>
+            </TouchableOpacity>
+          </View>
           <TouchableOpacity
             onPress={() => {
               if (!filters || Object.keys(filters).length === 0) {
@@ -448,121 +492,17 @@ export default function TransactionsListScreen() {
             </ScrollView>
           )}
         </View>
-        {/* Chips de filtros */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mt-4">
-          <View className="flex-row items-center">
-            {[
-              { key: "month", label: "Mês" },
-              { key: "lastMonth", label: "Mês Anterior" },
-              { key: "7d", label: "7d" },
-              { key: "30d", label: "30d" },
-            ].map((r) => (
-              <TouchableOpacity
-                key={r.key}
-                onPress={() => applyRange(r.key)}
-                className={`mr-2 rounded-full border px-4 py-2 ${
-                  rangeKey === r.key
-                    ? "border-blue-500 bg-blue-50 dark:bg-blue-900/30"
-                    : "border-gray-300 bg-white dark:border-gray-600 dark:bg-gray-700"
-                }`}
-              >
-                <Text
-                  className={`text-xs font-medium ${
-                    rangeKey === r.key
-                      ? "text-blue-700 dark:text-blue-300"
-                      : "text-gray-700 dark:text-gray-300"
-                  }`}
-                >
-                  {r.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
-
-            {/* Tipos */}
-            {[
-              { key: "income", label: "+" },
-              { key: "expense", label: "-" },
-              { key: "transfer", label: "⇄" },
-            ].map((t) => (
-              <TouchableOpacity
-                key={t.key}
-                onPress={() => toggleType(t.key as any)}
-                className={`mr-2 rounded-full border px-3 py-2 ${
-                  filters.transaction_types?.includes(t.key as any)
-                    ? "border-purple-500 bg-purple-50 dark:bg-purple-900/30"
-                    : "border-gray-300 bg-white dark:border-gray-600 dark:bg-gray-700"
-                }`}
-              >
-                <Text
-                  className={`text-xs font-semibold ${
-                    filters.transaction_types?.includes(t.key as any)
-                      ? "text-purple-700 dark:text-purple-300"
-                      : "text-gray-700 dark:text-gray-300"
-                  }`}
-                >
-                  {t.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
-
-            <TouchableOpacity
-              onPress={() => setShowAccountsModal(true)}
-              className={`mr-2 flex-row items-center rounded-full border px-4 py-2 ${
-                filters.account_ids?.length
-                  ? "border-green-500 bg-green-50 dark:bg-green-900/30"
-                  : "border-gray-300 bg-white dark:border-gray-600 dark:bg-gray-700"
-              }`}
-            >
-              <Text
-                className={`text-xs font-medium ${
-                  filters.account_ids?.length
-                    ? "text-green-700 dark:text-green-300"
-                    : "text-gray-700 dark:text-gray-300"
-                }`}
-              >
-                Contas{filters.account_ids?.length ? ` (${filters.account_ids.length})` : ""}
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              onPress={() => setShowAdvancedModal(true)}
-              className={`mr-2 rounded-full border px-4 py-2 ${
-                filters.search_text ||
-                filters.amount_min !== undefined ||
-                filters.amount_max !== undefined ||
-                filters.tags?.length ||
-                filters.category_ids?.length ||
-                filters.is_pending !== undefined
-                  ? "border-purple-500 bg-purple-50 dark:bg-purple-900/30"
-                  : "border-gray-300 bg-white dark:border-gray-600 dark:bg-gray-700"
-              }`}
-            >
-              <Text
-                className={`text-xs font-medium ${
-                  filters.search_text ||
-                  filters.amount_min !== undefined ||
-                  filters.amount_max !== undefined ||
-                  filters.tags?.length ||
-                  filters.category_ids?.length ||
-                  filters.is_pending !== undefined
-                    ? "text-purple-700 dark:text-purple-300"
-                    : "text-gray-700 dark:text-gray-300"
-                }`}
-              >
-                Avançado
-              </Text>
-            </TouchableOpacity>
-
-            {activeFiltersCount > 0 && (
-              <TouchableOpacity
-                onPress={clearFilters}
-                className="mr-2 rounded-full border border-red-400 bg-red-50 px-4 py-2 dark:border-red-600 dark:bg-red-900/30"
-              >
-                <Text className="text-xs font-medium text-red-600 dark:text-red-300">Limpar</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-        </ScrollView>
+        <FilterChips
+          rangeKey={rangeKey}
+          setRangeKey={setRangeKey}
+          applyRange={applyRange}
+          filters={filters}
+          toggleType={toggleType}
+          openAccounts={() => setShowAccountsModal(true)}
+          openAdvanced={() => setShowAdvancedModal(true)}
+          clearFilters={clearFilters}
+          activeFiltersCount={activeFiltersCount}
+        />
       </View>
 
       {transactions.length === 0 ? (
@@ -725,174 +665,51 @@ export default function TransactionsListScreen() {
           </View>
         </View>
       </Modal>
-
-      {/* Modal filtros avançados */}
-      <Modal visible={showAdvancedModal} animationType="slide" transparent>
-        <View className="flex-1 justify-end bg-black/50">
-          <View className="max-h-[85%] rounded-t-2xl bg-white p-4 dark:bg-gray-800">
-            <View className="mb-4 flex-row items-center justify-between">
-              <Text className="text-lg font-semibold text-gray-900 dark:text-white">
-                Filtros Avançados
-              </Text>
-              <TouchableOpacity onPress={() => setShowAdvancedModal(false)}>
-                <Text className="text-sm text-blue-500">Fechar</Text>
-              </TouchableOpacity>
-            </View>
-            <ScrollView className="flex-1" keyboardShouldPersistTaps="handled">
-              {/* Busca texto */}
-              <View className="mb-4">
-                <Text className="mb-1 text-xs font-semibold text-gray-600 dark:text-gray-300">
-                  Texto (descrição/notas)
-                </Text>
-                <TextInput
-                  value={tempSearch}
-                  onChangeText={setTempSearch}
-                  placeholder="Buscar..."
-                  className="rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
-                  placeholderTextColor="#9ca3af"
-                />
-              </View>
-              {/* Valores */}
-              <View className="mb-4 flex-row gap-3">
-                <View className="flex-1">
-                  <Text className="mb-1 text-xs font-semibold text-gray-600 dark:text-gray-300">
-                    Valor mín
-                  </Text>
-                  <TextInput
-                    value={tempAmountMin}
-                    onChangeText={setTempAmountMin}
-                    keyboardType="numeric"
-                    placeholder="0"
-                    className="rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
-                    placeholderTextColor="#9ca3af"
-                  />
-                </View>
-                <View className="flex-1">
-                  <Text className="mb-1 text-xs font-semibold text-gray-600 dark:text-gray-300">
-                    Valor máx
-                  </Text>
-                  <TextInput
-                    value={tempAmountMax}
-                    onChangeText={setTempAmountMax}
-                    keyboardType="numeric"
-                    placeholder="0"
-                    className="rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
-                    placeholderTextColor="#9ca3af"
-                  />
-                </View>
-              </View>
-              {/* Tags */}
-              <View className="mb-4">
-                <Text className="mb-1 text-xs font-semibold text-gray-600 dark:text-gray-300">
-                  Tags (separar por vírgula)
-                </Text>
-                <TextInput
-                  value={tempTags}
-                  onChangeText={setTempTags}
-                  placeholder="ex: viagem,imposto"
-                  className="rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
-                  placeholderTextColor="#9ca3af"
-                />
-              </View>
-              {/* Pendentes */}
-              <View className="mb-4 flex-row items-center">
-                <TouchableOpacity
-                  onPress={() => setTempPendingOnly((p) => !p)}
-                  className={`mr-3 h-6 w-6 items-center justify-center rounded border ${
-                    tempPendingOnly
-                      ? "border-yellow-500 bg-yellow-100 dark:border-yellow-400 dark:bg-yellow-600/30"
-                      : "border-gray-400 bg-white dark:border-gray-600 dark:bg-gray-700"
-                  }`}
-                >
-                  {tempPendingOnly && (
-                    <Text className="text-xs font-bold text-yellow-700 dark:text-yellow-300">
-                      ✓
-                    </Text>
-                  )}
-                </TouchableOpacity>
-                <Text className="text-sm text-gray-700 dark:text-gray-300">Somente pendentes</Text>
-              </View>
-              {/* Categorias */}
-              <View className="mb-4">
-                <Text className="mb-2 text-xs font-semibold text-gray-600 dark:text-gray-300">
-                  Categorias
-                </Text>
-                {categories.map((cat) => {
-                  const active = selectedCategoryIds.includes(cat.id);
-                  return (
-                    <TouchableOpacity
-                      key={cat.id}
-                      onPress={() => {
-                        setSelectedCategoryIds((prev) =>
-                          prev.includes(cat.id)
-                            ? prev.filter((c) => c !== cat.id)
-                            : [...prev, cat.id]
-                        );
-                      }}
-                      className={`mb-2 flex-row items-center rounded-lg border px-3 py-2 ${
-                        active
-                          ? "border-indigo-500 bg-indigo-50 dark:bg-indigo-900/30"
-                          : "border-gray-300 bg-white dark:border-gray-600 dark:bg-gray-700"
-                      }`}
-                    >
-                      <Text className="flex-1 text-sm font-medium text-gray-800 dark:text-gray-100">
-                        {cat.name}
-                      </Text>
-                      {active && (
-                        <Text className="text-xs font-semibold text-indigo-600 dark:text-indigo-300">
-                          ✓
-                        </Text>
-                      )}
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            </ScrollView>
-            <View className="mt-2 flex-row gap-3 pt-2">
-              <TouchableOpacity
-                onPress={() => {
-                  setTempSearch("");
-                  setTempAmountMin("");
-                  setTempAmountMax("");
-                  setTempTags("");
-                  setTempPendingOnly(false);
-                  setSelectedCategoryIds([]);
-                }}
-                className="flex-1 rounded-md bg-gray-200 py-3 dark:bg-gray-700"
-              >
-                <Text className="text-center font-semibold text-gray-900 dark:text-white">
-                  Limpar
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => {
-                  const updated: TransactionFilters = {
-                    ...filters,
-                    search_text: tempSearch || undefined,
-                    amount_min: tempAmountMin ? parseFloat(tempAmountMin) : undefined,
-                    amount_max: tempAmountMax ? parseFloat(tempAmountMax) : undefined,
-                    tags: tempTags
-                      ? tempTags
-                          .split(",")
-                          .map((t) => t.trim())
-                          .filter(Boolean)
-                      : undefined,
-                    category_ids: selectedCategoryIds.length ? selectedCategoryIds : undefined,
-                    is_pending: tempPendingOnly ? true : undefined,
-                  };
-                  setFilters(updated);
-                  setLastUsedFilters(updated);
-                  setShowAdvancedModal(false);
-                  loadTransactions(undefined, undefined, updated);
-                }}
-                className="flex-1 rounded-md bg-blue-500 py-3"
-              >
-                <Text className="text-center font-semibold text-white">Aplicar</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
+      <AdvancedFilterModal
+        visible={showAdvancedModal}
+        onClose={() => setShowAdvancedModal(false)}
+        categories={categories}
+        tempSearch={tempSearch}
+        setTempSearch={setTempSearch}
+        tempAmountMin={tempAmountMin}
+        setTempAmountMin={setTempAmountMin}
+        tempAmountMax={tempAmountMax}
+        setTempAmountMax={setTempAmountMax}
+        tempTags={tempTags}
+        setTempTags={setTempTags}
+        tempPendingOnly={tempPendingOnly}
+        setTempPendingOnly={setTempPendingOnly}
+        selectedCategoryIds={selectedCategoryIds}
+        setSelectedCategoryIds={setSelectedCategoryIds}
+        onClear={() => {
+          setTempSearch("");
+          setTempAmountMin("");
+          setTempAmountMax("");
+          setTempTags("");
+          setTempPendingOnly(false);
+          setSelectedCategoryIds([]);
+        }}
+        onApply={() => {
+          const updated: TransactionFilters = {
+            ...filters,
+            search_text: tempSearch || undefined,
+            amount_min: tempAmountMin ? parseFloat(tempAmountMin) : undefined,
+            amount_max: tempAmountMax ? parseFloat(tempAmountMax) : undefined,
+            tags: tempTags
+              ? tempTags
+                  .split(",")
+                  .map((t) => t.trim())
+                  .filter(Boolean)
+              : undefined,
+            category_ids: selectedCategoryIds.length ? selectedCategoryIds : undefined,
+            is_pending: tempPendingOnly ? true : undefined,
+          };
+          setFilters(updated);
+          setLastUsedFilters(updated);
+          setShowAdvancedModal(false);
+          loadTransactions(undefined, undefined, updated);
+        }}
+      />
     </SafeAreaView>
   );
 }
