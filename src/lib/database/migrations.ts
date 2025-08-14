@@ -1,0 +1,227 @@
+import * as SQLite from "expo-sqlite";
+
+// Versão atual do banco de dados
+export const DB_VERSION = 1;
+export const DB_NAME = "appfinanca.db";
+
+let db: SQLite.SQLiteDatabase | null = null;
+
+export const getDatabase = async (): Promise<SQLite.SQLiteDatabase> => {
+  if (db) {
+    return db;
+  }
+
+  db = await SQLite.openDatabaseAsync(DB_NAME);
+  await runMigrations(db);
+  return db;
+};
+
+const runMigrations = async (database: SQLite.SQLiteDatabase) => {
+  // Verificar versão atual
+  const result = await database.getFirstAsync<{ user_version: number }>(
+    "PRAGMA user_version"
+  );
+  const currentVersion = result?.user_version || 0;
+
+  console.log(`Database version: ${currentVersion}, target: ${DB_VERSION}`);
+
+  // Executar migrações necessárias
+  if (currentVersion < 1) {
+    await migration_001_initial_schema(database);
+  }
+
+  // Atualizar versão do banco
+  if (currentVersion < DB_VERSION) {
+    await database.execAsync(`PRAGMA user_version = ${DB_VERSION}`);
+  }
+};
+
+// Migração inicial - Criação das tabelas
+const migration_001_initial_schema = async (db: SQLite.SQLiteDatabase) => {
+  console.log("Running migration 001: Initial schema");
+
+  await db.execAsync(`
+    -- Configurações da aplicação
+    CREATE TABLE IF NOT EXISTS settings (
+      id TEXT PRIMARY KEY DEFAULT 'default',
+      currency TEXT NOT NULL DEFAULT 'BRL',
+      theme TEXT NOT NULL DEFAULT 'system',
+      first_day_of_week INTEGER NOT NULL DEFAULT 1,
+      date_format TEXT NOT NULL DEFAULT 'DD/MM/YYYY',
+      number_format TEXT NOT NULL DEFAULT 'pt-BR',
+      language TEXT NOT NULL DEFAULT 'pt-BR',
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    
+    -- Contas
+    CREATE TABLE IF NOT EXISTS accounts (
+      id TEXT PRIMARY KEY DEFAULT (hex(randomblob(16))),
+      name TEXT NOT NULL,
+      type TEXT NOT NULL CHECK (type IN ('checking', 'savings', 'credit_card', 'cash', 'investment', 'other')),
+      initial_balance REAL NOT NULL DEFAULT 0,
+      current_balance REAL NOT NULL DEFAULT 0,
+      color TEXT NOT NULL DEFAULT '#3b82f6',
+      icon TEXT NOT NULL DEFAULT 'wallet',
+      is_archived INTEGER NOT NULL DEFAULT 0,
+      description TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    
+    -- Categorias
+    CREATE TABLE IF NOT EXISTS categories (
+      id TEXT PRIMARY KEY DEFAULT (hex(randomblob(16))),
+      name TEXT NOT NULL,
+      parent_id TEXT,
+      type TEXT NOT NULL CHECK (type IN ('income', 'expense')),
+      color TEXT NOT NULL DEFAULT '#6b7280',
+      icon TEXT NOT NULL DEFAULT 'tag',
+      is_system INTEGER NOT NULL DEFAULT 0,
+      description TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      FOREIGN KEY (parent_id) REFERENCES categories (id) ON DELETE SET NULL
+    );
+    
+    -- Transações
+    CREATE TABLE IF NOT EXISTS transactions (
+      id TEXT PRIMARY KEY DEFAULT (hex(randomblob(16))),
+      type TEXT NOT NULL CHECK (type IN ('income', 'expense', 'transfer')),
+      account_id TEXT NOT NULL,
+      destination_account_id TEXT,
+      category_id TEXT,
+      amount REAL NOT NULL,
+      description TEXT NOT NULL,
+      notes TEXT,
+      occurred_at TEXT NOT NULL,
+      tags TEXT, -- JSON array como string
+      attachment_path TEXT,
+      recurrence_id TEXT,
+      is_pending INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      FOREIGN KEY (account_id) REFERENCES accounts (id) ON DELETE RESTRICT,
+      FOREIGN KEY (destination_account_id) REFERENCES accounts (id) ON DELETE RESTRICT,
+      FOREIGN KEY (category_id) REFERENCES categories (id) ON DELETE SET NULL,
+      FOREIGN KEY (recurrence_id) REFERENCES recurrences (id) ON DELETE SET NULL
+    );
+    
+    -- Orçamentos
+    CREATE TABLE IF NOT EXISTS budgets (
+      id TEXT PRIMARY KEY DEFAULT (hex(randomblob(16))),
+      name TEXT NOT NULL,
+      category_id TEXT,
+      amount REAL NOT NULL,
+      period_type TEXT NOT NULL CHECK (period_type IN ('monthly', 'quarterly', 'yearly', 'custom')),
+      period_start TEXT NOT NULL,
+      period_end TEXT NOT NULL,
+      alert_percentage REAL NOT NULL DEFAULT 80,
+      is_active INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      FOREIGN KEY (category_id) REFERENCES categories (id) ON DELETE CASCADE
+    );
+    
+    -- Metas
+    CREATE TABLE IF NOT EXISTS goals (
+      id TEXT PRIMARY KEY DEFAULT (hex(randomblob(16))),
+      name TEXT NOT NULL,
+      description TEXT,
+      target_amount REAL NOT NULL,
+      current_amount REAL NOT NULL DEFAULT 0,
+      target_date TEXT,
+      is_completed INTEGER NOT NULL DEFAULT 0,
+      color TEXT NOT NULL DEFAULT '#10b981',
+      icon TEXT NOT NULL DEFAULT 'target',
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    
+    -- Recorrências
+    CREATE TABLE IF NOT EXISTS recurrences (
+      id TEXT PRIMARY KEY DEFAULT (hex(randomblob(16))),
+      name TEXT NOT NULL,
+      type TEXT NOT NULL CHECK (type IN ('income', 'expense', 'transfer')),
+      account_id TEXT NOT NULL,
+      destination_account_id TEXT,
+      category_id TEXT,
+      amount REAL NOT NULL,
+      description TEXT NOT NULL,
+      notes TEXT,
+      frequency TEXT NOT NULL CHECK (frequency IN ('daily', 'weekly', 'monthly', 'yearly')),
+      interval_count INTEGER NOT NULL DEFAULT 1,
+      days_of_week TEXT, -- JSON array para dias da semana
+      day_of_month INTEGER,
+      start_date TEXT NOT NULL,
+      end_date TEXT,
+      next_occurrence TEXT NOT NULL,
+      is_active INTEGER NOT NULL DEFAULT 1,
+      tags TEXT, -- JSON array como string
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      FOREIGN KEY (account_id) REFERENCES accounts (id) ON DELETE RESTRICT,
+      FOREIGN KEY (destination_account_id) REFERENCES accounts (id) ON DELETE RESTRICT,
+      FOREIGN KEY (category_id) REFERENCES categories (id) ON DELETE SET NULL
+    );
+    
+    -- Filtros salvos
+    CREATE TABLE IF NOT EXISTS saved_filters (
+      id TEXT PRIMARY KEY DEFAULT (hex(randomblob(16))),
+      name TEXT NOT NULL,
+      filters TEXT NOT NULL, -- JSON object como string
+      is_default INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    
+    -- Índices para performance
+    CREATE INDEX IF NOT EXISTS idx_transactions_occurred_at ON transactions (occurred_at);
+    CREATE INDEX IF NOT EXISTS idx_transactions_account_id ON transactions (account_id);
+    CREATE INDEX IF NOT EXISTS idx_transactions_category_id ON transactions (category_id);
+    CREATE INDEX IF NOT EXISTS idx_transactions_type ON transactions (type);
+    CREATE INDEX IF NOT EXISTS idx_categories_parent_id ON categories (parent_id);
+    CREATE INDEX IF NOT EXISTS idx_categories_type ON categories (type);
+    CREATE INDEX IF NOT EXISTS idx_budgets_category_id ON budgets (category_id);
+    CREATE INDEX IF NOT EXISTS idx_budgets_period ON budgets (period_start, period_end);
+    
+    -- Triggers para atualizar updated_at automaticamente
+    CREATE TRIGGER IF NOT EXISTS update_accounts_updated_at 
+      AFTER UPDATE ON accounts
+      BEGIN
+        UPDATE accounts SET updated_at = datetime('now') WHERE id = NEW.id;
+      END;
+      
+    CREATE TRIGGER IF NOT EXISTS update_categories_updated_at 
+      AFTER UPDATE ON categories
+      BEGIN
+        UPDATE categories SET updated_at = datetime('now') WHERE id = NEW.id;
+      END;
+      
+    CREATE TRIGGER IF NOT EXISTS update_transactions_updated_at 
+      AFTER UPDATE ON transactions
+      BEGIN
+        UPDATE transactions SET updated_at = datetime('now') WHERE id = NEW.id;
+      END;
+      
+    CREATE TRIGGER IF NOT EXISTS update_budgets_updated_at 
+      AFTER UPDATE ON budgets
+      BEGIN
+        UPDATE budgets SET updated_at = datetime('now') WHERE id = NEW.id;
+      END;
+      
+    CREATE TRIGGER IF NOT EXISTS update_goals_updated_at 
+      AFTER UPDATE ON goals
+      BEGIN
+        UPDATE goals SET updated_at = datetime('now') WHERE id = NEW.id;
+      END;
+      
+    CREATE TRIGGER IF NOT EXISTS update_recurrences_updated_at 
+      AFTER UPDATE ON recurrences
+      BEGIN
+        UPDATE recurrences SET updated_at = datetime('now') WHERE id = NEW.id;
+      END;
+  `);
+
+  console.log("Migration 001 completed");
+};
