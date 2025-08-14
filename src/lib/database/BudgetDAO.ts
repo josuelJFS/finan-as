@@ -1,6 +1,7 @@
 import * as SQLite from "expo-sqlite";
 import { getDatabase } from "./migrations";
 import type { Budget, BudgetPeriodType } from "../../types/entities";
+import { Events } from "../events";
 
 export interface BudgetFilters {
   category_id?: string;
@@ -75,6 +76,13 @@ export class BudgetDAO {
       throw new Error("Erro ao criar orçamento");
     }
 
+    // Inicializar cache (valor gasto 0) para o período
+    try {
+      await this.upsertCache(id, budget.period_start, budget.period_end, 0);
+    } catch (e) {
+      console.warn("[BudgetDAO] Falha ao inicializar cache de orçamento", e);
+    }
+    Events.emit("budgets:progressInvalidated", { reason: "budget created" } as any);
     return createdBudget;
   }
 
@@ -212,7 +220,9 @@ export class BudgetDAO {
     if (!updatedBudget) {
       throw new Error("Erro ao atualizar orçamento");
     }
-
+    // Invalida cache deste orçamento (será recalculado sob demanda)
+    await this.invalidateCacheForBudget(id);
+    Events.emit("budgets:progressInvalidated", { reason: "budget updated" } as any);
     return updatedBudget;
   }
 
@@ -220,6 +230,9 @@ export class BudgetDAO {
   async delete(id: string): Promise<void> {
     const db = await this.getDb();
     await db.runAsync("DELETE FROM budgets WHERE id = ?", [id]);
+    // Remover cache associado
+    await db.runAsync("DELETE FROM budget_progress_cache WHERE budget_id = ?", [id]);
+    Events.emit("budgets:progressInvalidated", { reason: "budget deleted" } as any);
   }
 
   // Calcular progresso dos orçamentos
@@ -247,53 +260,52 @@ export class BudgetDAO {
   // Versão otimizada: calcula gasto via subquery em lote
   async getActiveBudgetsProgressOptimized(): Promise<BudgetProgress[]> {
     const db = await this.getDb();
-    const query = `
-      SELECT 
-        b.*, 
-        c.name as category_name,
-        (
-          SELECT COALESCE(SUM(t.amount),0)
-          FROM transactions t
-          WHERE t.type = 'expense'
-            AND t.is_pending = 0
-            AND t.occurred_at >= b.period_start
-            AND t.occurred_at <= b.period_end
-            AND (b.category_id IS NULL OR t.category_id = b.category_id)
-        ) as spent
-      FROM budgets b
-      LEFT JOIN categories c ON b.category_id = c.id
-      WHERE b.is_active = 1
-      ORDER BY b.created_at DESC
-    `;
+    // Buscar orçamentos ativos
+    const budgets = await db.getAllAsync<any>(
+      `SELECT b.*, c.name as category_name FROM budgets b LEFT JOIN categories c ON b.category_id = c.id WHERE b.is_active = 1 ORDER BY b.created_at DESC`
+    );
 
-    const rows = await db.getAllAsync<any>(query);
-
-    return rows.map((row) => {
-      const amount = row.amount as number;
-      const spent = row.spent as number;
+    const results: BudgetProgress[] = [];
+    for (const b of budgets) {
+      // Tentar ler cache
+      let spent: number | null = null;
+      const cacheRow = await db.getFirstAsync<any>(
+        `SELECT spent FROM budget_progress_cache WHERE budget_id = ? AND period_start = ? AND period_end = ?`,
+        [b.id, b.period_start, b.period_end]
+      );
+      if (cacheRow) {
+        spent = cacheRow.spent;
+      }
+      if (spent === null) {
+        // Calcular e gravar
+        spent = await this.calculateSpentAmount(b as any as Budget);
+        await this.upsertCache(b.id, b.period_start, b.period_end, spent);
+      }
+      const amount = b.amount as number;
       const percentage = amount > 0 ? Math.min((spent / amount) * 100, 100) : 0;
       const remaining = amount - spent;
-      return {
+      results.push({
         budget: {
-          id: row.id,
-          name: row.name,
-          category_id: row.category_id,
-          amount: row.amount,
-          period_type: row.period_type,
-          period_start: row.period_start,
-          period_end: row.period_end,
-          alert_percentage: row.alert_percentage,
-          is_active: row.is_active === 1,
-          created_at: row.created_at,
-          updated_at: row.updated_at,
-          category_name: row.category_name,
+          id: b.id,
+          name: b.name,
+          category_id: b.category_id,
+          amount: b.amount,
+          period_type: b.period_type,
+          period_start: b.period_start,
+          period_end: b.period_end,
+          alert_percentage: b.alert_percentage,
+          is_active: b.is_active === 1,
+          created_at: b.created_at,
+          updated_at: b.updated_at,
+          category_name: b.category_name,
         } as any,
         spent,
         percentage,
         remaining,
         is_exceeded: spent > amount,
-      } as BudgetProgress;
-    });
+      });
+    }
+    return results;
   }
 
   // Calcular valor gasto no orçamento
@@ -348,4 +360,38 @@ export class BudgetDAO {
     const progressList = await this.getCurrentActiveBudgets();
     return progressList.filter((p) => p.percentage >= p.budget.alert_percentage);
   }
+
+  private async upsertCache(
+    budget_id: string,
+    period_start: string,
+    period_end: string,
+    spent: number
+  ) {
+    const db = await this.getDb();
+    await db.runAsync(
+      `INSERT INTO budget_progress_cache (budget_id, period_start, period_end, spent, updated_at)
+       VALUES (?, ?, ?, ?, datetime('now'))
+       ON CONFLICT(budget_id, period_start, period_end) DO UPDATE SET
+         spent=excluded.spent,
+         updated_at=datetime('now')`,
+      [budget_id, period_start, period_end, spent]
+    );
+  }
+
+  private async invalidateCacheForBudget(budget_id: string) {
+    const db = await this.getDb();
+    await db.runAsync("DELETE FROM budget_progress_cache WHERE budget_id = ?", [budget_id]);
+    Events.emit("budgets:progressInvalidated", { reason: "selective invalidation" } as any);
+  }
 }
+
+// Listener para invalidar cache quando transações mudam
+Events.on("transactions:changed", () => {
+  // Estratégia simples: limpeza total (pode otimizar mais tarde por período/categoria)
+  getDatabase().then((db) => {
+    db.runAsync("DELETE FROM budget_progress_cache").catch((e) =>
+      console.warn("[BudgetCache] Falha ao limpar cache após transação", e)
+    );
+    Events.emit("budgets:progressInvalidated", { reason: "transaction change" } as any);
+  });
+});

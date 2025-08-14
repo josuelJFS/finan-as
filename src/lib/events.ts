@@ -4,6 +4,8 @@
 export type AppEventMap = {
   "transactions:changed": { action: "create" | "update" | "delete"; id?: string };
   "accounts:balancesChanged": void;
+  // reason: pequena descrição da origem (ex: "transaction change", "budget updated")
+  "budgets:progressInvalidated": { reason?: string } | void;
 };
 
 type Listener<T> = (payload: T) => void;

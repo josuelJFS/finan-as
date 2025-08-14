@@ -1,7 +1,7 @@
 import * as SQLite from "expo-sqlite";
 
 // Versão atual do banco de dados
-export const DB_VERSION = 2;
+export const DB_VERSION = 3;
 export const DB_NAME = "appfinanca.db";
 
 let db: SQLite.SQLiteDatabase | null = null;
@@ -56,6 +56,10 @@ const runMigrations = async (database: SQLite.SQLiteDatabase) => {
     }
   } else {
     ensureIndexesInBackground(database); // garantir em execuções futuras
+  }
+
+  if (currentVersion < 3) {
+    await migration_003_budget_progress_cache(database);
   }
 
   // Atualizar versão do banco
@@ -377,4 +381,22 @@ function ensureIndexesInBackground(db: SQLite.SQLiteDatabase, attempts: number =
     }
   };
   setTimeout(tick, 700);
+}
+
+// Migração 003 - Cache incremental de progresso de orçamentos
+async function migration_003_budget_progress_cache(db: SQLite.SQLiteDatabase) {
+  console.log("Running migration 003: Budget progress cache");
+  await db.execAsync(`
+    CREATE TABLE IF NOT EXISTS budget_progress_cache (
+      budget_id TEXT NOT NULL,
+      period_start TEXT NOT NULL,
+      period_end TEXT NOT NULL,
+      spent REAL NOT NULL DEFAULT 0,
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      PRIMARY KEY (budget_id, period_start, period_end),
+      FOREIGN KEY (budget_id) REFERENCES budgets(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_budget_progress_range ON budget_progress_cache (period_start, period_end);
+  `);
+  console.log("Migration 003 completed");
 }

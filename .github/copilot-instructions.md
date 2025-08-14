@@ -71,7 +71,7 @@ Aplicativo de finanças pessoais, offline-first, usando Expo (React Native + Typ
 2. ✅ **CRUD de contas**: saldo inicial, tipos, saldo total, pull-to-refresh
 3. ✅ **CRUD de categorias**: hierarquia + tipos, pull-to-refresh
 4. ✅ **CRUD de transações**: despesas, receitas, transferências (atomic balance update) + notas + tags (UI básica) (anexos ainda não)
-5. ✅ **Busca e filtros básicos**: período (chips), tipo (toggles), contas (multi-select), persistência lastUsed + filtros salvos (criar/aplicar/remover) – (filtros avançados pendentes)
+5. ✅ **Busca e filtros**: básicos (período, tipo, contas) + avançados fase 1 (categoria múltipla, texto, tags, faixa valor, pendentes) + filtros salvos (criar/aplicar/remover) – (fase 2: UX refinada, agrupamento, excluir transfers separadamente, presets)
 6. ✅ **Orçamentos (Budgets)**: CRUD + progresso + alertas básicos (otimização/cache & alertas globais avançados pendentes)
 7. ❌ **Metas (Goals)**: não iniciado
 8. ❌ **Transações recorrentes**: não iniciado (engine + materialização idempotente)
@@ -120,12 +120,14 @@ Benefício: aceleração de filtros por período/conta/categoria/tipo e cálculo
 ✅ Indicador de filtros ativos no Dashboard  
 ✅ Exportação CSV respeitando filtros + compartilhamento (expo-sharing / Share fallback)  
 ✅ Query de progresso de orçamentos otimizada (redução de round-trips)
+✅ Cache incremental de progresso de orçamentos (tabela budget_progress_cache + invalidação simples por transação)
 
 ## FLUXOS CRÍTICOS PENDENTES
 
-❌ Filtros avançados: categoria múltipla, tags, faixa de valor, texto busca, incluir/excluir transferências
-✅ Índices SQLite iniciais + complementares (migrations 001-002)
-⚠️ Cache incremental de progresso de orçamento + invalidação seletiva
+✅ Filtros avançados (fase 1 implementada: categoria, tags, faixa valor, texto, pendentes)
+✅ Índices SQLite iniciais + complementares (migrations 001-002, criação tolerante a lock com retry/background)
+⚠️ Filtros avançados fase 2: UX de chips componetizada, presets rápidos, destaque de transferências opcional, operador E/OU para tags
+✅ Cache incremental de progresso de orçamento (fase 1 - limpeza total on transactions:changed; otimização seletiva pendente)
 ❌ Materialização de recorrências na abertura / agendamento (idempotente)
 ❌ Alertas de orçamento consolidados (dashboard + badges em abas)
 ❌ Metas (CRUD + cálculo progresso)
@@ -223,13 +225,13 @@ return (
 ### ⚠️ EM PROGRESSO (Passo 5)
 
 - Gráficos e KPIs adicionais no Dashboard (comparativo mês anterior, linha de tendência)
-- Cache incremental de progresso de orçamentos
-- Base para filtros avançados (definição de schema + migração índices)
+- Cache incremental de progresso de orçamentos (fase 2 otimização seletiva por categoria/período)
+- Extração de componentes (FilterChips / AdvancedFilterModal)
 
 ### ❌ PENDENTE (Passo 5-9)
 
 - Dashboard avançado (drilldown, comparativos, heatmap de dias)
-- Filtros avançados completos (categoria, tags, faixa valor, texto)
+- Filtros avançados fase 2 (UX, presets, lógica tags E/OU, quick reset)
 - Alertas de orçamento consolidados (dashboard + badges em abas)
 - Transações recorrentes (engine + UI)
 - Anexos (captura, galeria, limpeza)
@@ -238,13 +240,29 @@ return (
 
 ## PRIORIDADES IMEDIATAS (Atual)
 
-1. Migração de índices SQLite (performance filtros/orçamentos)
-2. Schema + UI inicial de filtros avançados (definir TransactionFilters v2)
-3. Cache incremental + badge de alerta de orçamento na Tab
-4. Dashboard: gráfico Entradas vs Saídas (linha/colunas) + comparação mês anterior
-5. Export CSV v2 (tags, transferências, separador configurável)
+1. Dashboard: gráfico Entradas vs Saídas (últimos 6-12 meses) + comparação mês anterior
+2. Export CSV v2 (coluna tags separada, marcação de transferências, separador configurável)
+3. Refator: extrair FilterChips e AdvancedFilterModal para `components/`
+4. Cache budgets fase 2: invalidação seletiva (categoria/período) + pré-hidratação lazy
 
-Sequência após concluir acima: Recorrências → Backup/Restore → Anexos → Goals.
+✅ Concluído recentemente: Badge de alerta de orçamento na Tab (escuta de eventos de progresso)
+
+## BACKLOG DE MELHORIAS (Não Essenciais / Agendar Depois)
+
+Foco primeiro no essencial (prioridades imediatas). Itens abaixo são incrementais e não bloqueiam as entregas principais:
+
+- Debounce/throttle (100–300ms) para recomputar badge de orçamentos em rajadas de eventos.
+- Persistir contagem de alertas em Zustand para evitar flash inicial (hidratar do store antes da primeira query).
+- Acessibilidade do badge: `accessibilityLabel` descrevendo número de alertas (ex: "3 orçamentos em risco").
+- Testes unitários para `BudgetDAO.getActiveBudgetsProgressOptimized` (caminho cache hit/miss).
+- Enum central para motivos (`reason`) de `budgets:progressInvalidated` (ex: 'transaction', 'budgetUpdate', 'delete', 'create', 'selective').
+- Limite visual para contagens altas: exibir "99+" se > 99 (hoje limitado a 9+).
+- Medição de desempenho: log de duração do cálculo de progresso quando > 40ms para tunar cache.
+- Substituir `console.log`/`console.warn` por util de logger com níveis e toggle por ambiente.
+- Pré-cálculo incremental seletivo: mapear budgets ativos por categoria para invalidar apenas os afetados por uma transação (fase 2 do cache).
+- Remover logs verbosos (`findAll` de budgets) em builds de produção.
+
+Sequência após concluir acima: Recorrências → Backup/Restore → Anexos → Goals → Filtros Avançados Fase 2.
 
 ## GUIDELINES DE DESENVOLVIMENTO
 
