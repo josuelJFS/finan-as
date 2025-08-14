@@ -4,7 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useState } from "react";
 import { useRouter, useFocusEffect } from "expo-router";
 import { useCallback } from "react";
-import { AccountDAO, TransactionDAO } from "../../src/lib/database";
+import { AccountDAO, TransactionDAO, BudgetDAO } from "../../src/lib/database";
 import { Events } from "../../src/lib/events";
 import { formatCurrency } from "../../src/lib/utils";
 import type { Account, BalanceSummary } from "../../src/types/entities";
@@ -15,9 +15,13 @@ export default function DashboardScreen() {
   const [balanceSummary, setBalanceSummary] = useState<BalanceSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [budgetAlerts, setBudgetAlerts] = useState<
+    { id: string; name: string; percentage: number; remaining: number }[]
+  >([]);
 
   const accountDAO = AccountDAO.getInstance();
   const transactionDAO = TransactionDAO.getInstance();
+  const budgetDAO = BudgetDAO.getInstance();
 
   useEffect(() => {
     loadDashboardData();
@@ -85,6 +89,26 @@ export default function DashboardScreen() {
 
       const totalIncome = incomeTransactions.reduce((sum, t) => sum + t.amount, 0);
       const totalExpenses = expenseTransactions.reduce((sum, t) => sum + t.amount, 0);
+
+      // Orçamentos em alerta (top 3 por %)
+      try {
+        const alerts = await budgetDAO.getBudgetsWithAlerts();
+        setBudgetAlerts(
+          alerts
+            .sort((a, b) => b.percentage - a.percentage)
+            .slice(0, 3)
+            .map((p) => ({
+              id: p.budget.id,
+              name: p.budget.category_id
+                ? (p.budget as any).category_name || p.budget.name
+                : p.budget.name,
+              percentage: p.percentage,
+              remaining: p.remaining,
+            }))
+        );
+      } catch (e) {
+        console.warn("Falha ao carregar alertas de orçamento", e);
+      }
 
       setBalanceSummary({
         total_balance: total,
@@ -252,6 +276,43 @@ export default function DashboardScreen() {
             </TouchableOpacity>
           </View>
         </View>
+
+        {/* Alertas de Orçamento */}
+        {budgetAlerts.length > 0 && (
+          <View className="mx-4 mb-8">
+            <Text className="mb-3 text-lg font-semibold text-gray-900 dark:text-white">
+              Alertas de Orçamento
+            </Text>
+            <View className="space-y-3">
+              {budgetAlerts.map((a) => (
+                <View
+                  key={a.id}
+                  className="rounded-lg border border-yellow-300 bg-yellow-50 p-4 dark:border-yellow-700 dark:bg-yellow-900/20"
+                >
+                  <View className="flex-row items-center justify-between">
+                    <Text className="flex-1 text-base font-medium text-yellow-800 dark:text-yellow-200">
+                      {a.name}
+                    </Text>
+                    <Text
+                      className={`text-sm font-semibold ${
+                        a.percentage >= 100
+                          ? "text-red-600 dark:text-red-400"
+                          : "text-yellow-700 dark:text-yellow-300"
+                      }`}
+                    >
+                      {a.percentage.toFixed(0)}%
+                    </Text>
+                  </View>
+                  <Text className="mt-1 text-xs text-yellow-700 dark:text-yellow-300">
+                    {a.remaining >= 0
+                      ? `Restam ${formatCurrency(a.remaining)} antes do limite`
+                      : `Excedeu em ${formatCurrency(Math.abs(a.remaining))}`}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
       </ScrollView>
     </SafeAreaView>
   );

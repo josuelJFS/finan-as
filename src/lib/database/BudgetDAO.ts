@@ -279,7 +279,7 @@ export class BudgetDAO {
           name: row.name,
           category_id: row.category_id,
           amount: row.amount,
-            period_type: row.period_type,
+          period_type: row.period_type,
           period_start: row.period_start,
           period_end: row.period_end,
           alert_percentage: row.alert_percentage,
@@ -322,8 +322,8 @@ export class BudgetDAO {
 
   // Buscar orçamentos ativos do período atual
   async getCurrentActiveBudgets(): Promise<BudgetProgress[]> {
-  // Usar versão otimizada
-  return this.getActiveBudgetsProgressOptimized();
+    // Usar versão otimizada
+    return this.getActiveBudgetsProgressOptimized();
   }
 
   // Método de teste simples
@@ -345,7 +345,7 @@ export class BudgetDAO {
     }
   } // Buscar orçamentos que precisam de alerta
   async getBudgetsWithAlerts(): Promise<BudgetProgress[]> {
-  const progressList = await this.getCurrentActiveBudgets();
-  return progressList.filter((p) => p.percentage >= p.budget.alert_percentage);
+    const progressList = await this.getCurrentActiveBudgets();
+    return progressList.filter((p) => p.percentage >= p.budget.alert_percentage);
   }
 }
