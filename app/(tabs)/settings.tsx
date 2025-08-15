@@ -1,6 +1,7 @@
 import { View, Text, TouchableOpacity, Switch, ScrollView, Alert } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import { checkBiometricSupport, authenticateOnce } from "../../src/lib/biometric";
 import { useRouter } from "expo-router";
 import { useAppStore } from "../../src/lib/store";
 
@@ -120,7 +121,28 @@ export default function SettingsScreen() {
             </View>
             <Switch
               value={biometricEnabled}
-              onValueChange={setBiometricEnabled}
+              onValueChange={async (next) => {
+                if (next) {
+                  const support = await checkBiometricSupport();
+                  if (!support.canUse) {
+                    Alert.alert(
+                      "Biometria indisponível",
+                      !support.enrolled
+                        ? "Cadastre sua digital/face nas configurações do dispositivo primeiro."
+                        : "Seu dispositivo não suporta biometria."
+                    );
+                    return;
+                  }
+                  const ok = await authenticateOnce("Habilitar Biometria");
+                  if (!ok) return; // usuário cancelou
+                  setBiometricEnabled(true);
+                } else {
+                  // Desativar requer autenticação para evitar desligar indevidamente
+                  const ok = await authenticateOnce("Desativar Biometria");
+                  if (!ok) return;
+                  setBiometricEnabled(false);
+                }
+              }}
               trackColor={{ false: "#d1d5db", true: "#16a34a" }}
               thumbColor={biometricEnabled ? "#ffffff" : "#f3f4f6"}
             />

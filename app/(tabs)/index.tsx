@@ -378,11 +378,13 @@ export default function DashboardScreen() {
           </View>
 
           {accounts.length > 0 ? (
-            <View className="space-y-3">
-              {accounts.slice(0, 4).map((account) => (
+            <View className="pb-1">
+              {accounts.slice(0, 4).map((account, idx, arr) => (
                 <View
                   key={account.id}
-                  className="rounded-lg bg-white p-4 shadow-sm dark:bg-gray-800"
+                  className={`mb-3 rounded-xl border border-gray-100 bg-white p-4 shadow-sm dark:border-gray-700/60 dark:bg-gray-800 ${
+                    idx === arr.length - 1 ? 'mb-0' : ''
+                  }`}
                 >
                   <View className="flex-row items-center justify-between">
                     <View className="flex-1 flex-row items-center">

@@ -200,14 +200,17 @@ export default function BudgetsScreen() {
         )}
 
         {budgetProgressList.length > 0 ? (
-          <View className="space-y-4 p-4">
-            {budgetProgressList.map((progress) => {
+          <View className="px-4 pb-8 pt-4">
+            {budgetProgressList.map((progress, index) => {
               const { budget, spent, percentage, remaining } = progress;
 
               return (
                 <TouchableOpacity
                   key={budget.id}
-                  className="rounded-xl bg-white p-4 shadow-sm dark:bg-gray-800"
+                  /* Usamos mb-4 manual ao invés de space-y (que pode não estar habilitado) */
+                  className={`mb-4 rounded-xl border border-gray-100 bg-white p-4 shadow-sm dark:border-gray-700/60 dark:bg-gray-800 ${
+                    index === budgetProgressList.length - 1 ? "mb-0" : ""
+                  }`}
                   onPress={() => router.push(`/budgets/create?id=${budget.id}`)}
                 >
                   {/* Header do orçamento */}
