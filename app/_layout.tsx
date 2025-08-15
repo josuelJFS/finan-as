@@ -7,6 +7,7 @@ import { View } from "react-native";
 import { useAppStore } from "../src/lib/store";
 import { useEffect } from "react";
 import { initializeDatabase, materializeDueRecurrences } from "../src/lib/database";
+import { ChartTooltipProvider } from "../src/components/charts/common/ChartTooltip";
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
@@ -31,22 +32,24 @@ export default function RootLayout() {
     <SafeAreaProvider>
       {/* Wrapper força cor de fundo imediata evitando flash ao alternar tema/system */}
       <View style={{ flex: 1, backgroundColor: isDark ? "#0f172a" : "#ffffff" }}>
-        <Stack
-          screenOptions={{
-            headerShown: false,
-            contentStyle: {
-              backgroundColor: isDark ? "#0f172a" : "#ffffff",
-            },
-          }}
-        >
-          <Stack.Screen name="index" />
-          <Stack.Screen name="onboarding" />
-          <Stack.Screen name="(tabs)" />
-          <Stack.Screen name="budgets/create" options={{ presentation: "modal" }} />
-          <Stack.Screen name="recurrences/index" />
-          <Stack.Screen name="recurrences/new" options={{ presentation: "modal" }} />
-        </Stack>
-        <StatusBar style={isDark ? "light" : "dark"} />
+        <ChartTooltipProvider>
+          <Stack
+            screenOptions={{
+              headerShown: false,
+              contentStyle: {
+                backgroundColor: isDark ? "#0f172a" : "#ffffff",
+              },
+            }}
+          >
+            <Stack.Screen name="index" />
+            <Stack.Screen name="onboarding" />
+            <Stack.Screen name="(tabs)" />
+            <Stack.Screen name="budgets/create" options={{ presentation: "modal" }} />
+            <Stack.Screen name="recurrences/index" />
+            <Stack.Screen name="recurrences/new" options={{ presentation: "modal" }} />
+          </Stack>
+          <StatusBar style={isDark ? "light" : "dark"} />
+        </ChartTooltipProvider>
       </View>
     </SafeAreaProvider>
   );

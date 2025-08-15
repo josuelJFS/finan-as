@@ -1,19 +1,41 @@
-import React from "react";
-import { View, Text } from "react-native";
+import React, { useEffect } from "react";
+import { View, Text, useWindowDimensions, ScrollView } from "react-native";
+import Svg, {
+  G,
+  Rect,
+  Path,
+  Text as SvgText,
+  Defs,
+  LinearGradient,
+  Stop,
+  Line,
+} from "react-native-svg";
+import Animated, {
+  useSharedValue,
+  withTiming,
+  withDelay,
+  useAnimatedProps,
+  Easing,
+} from "react-native-reanimated";
 import { Ionicons } from "@expo/vector-icons";
 import type { MonthlyTrend } from "../lib/database/TransactionDAO";
 
 interface Props {
-  data: MonthlyTrend[];
-  months?: number; // quantos últimos meses exibir
+  data: MonthlyTrend[]; // já agregado conforme granularidade
+  periods?: number; // quantos últimos períodos exibir
+  /** @deprecated usar periods */
+  months?: number; // compat legacy
+  granularity?: "day" | "week" | "month" | "year";
   showTrendLine?: boolean;
-  showMovingAverage?: boolean; // média móvel 3m sobre saldo
+  showMovingAverage?: boolean; // média móvel 3 períodos sobre saldo
 }
 
-// Gráfico simples de barras duplas (income vs expenses) sem libs externas (layout flex)
+// Versão modernizada em SVG com animações reanimated
 export const MonthlyTrendsChart: React.FC<Props> = ({
   data,
-  months = 6,
+  periods,
+  months,
+  granularity = "month",
   showTrendLine = false,
   showMovingAverage = false,
 }) => {
@@ -25,7 +47,8 @@ export const MonthlyTrendsChart: React.FC<Props> = ({
     );
   }
 
-  const recent = data.slice(-months);
+  const finalPeriods = periods ?? months ?? 6;
+  const recent = data.slice(-finalPeriods);
   const current = recent[recent.length - 1];
   const previous = recent.length > 1 ? recent[recent.length - 2] : undefined;
 
@@ -71,15 +94,173 @@ export const MonthlyTrendsChart: React.FC<Props> = ({
     });
   }
 
+  // Configurações SVG
+  const chartHeight = 120;
+  const paddingBottom = 34;
+  const barWidth = 10;
+  const gap = 14;
+  const totalWidth = recent.length * gap + 40;
+  const { width: windowW } = useWindowDimensions();
+  const y = (v: number) =>
+    chartHeight - paddingBottom - (v / maxValue) * (chartHeight - paddingBottom - 8);
+
+  // Animated shared values
+  const incomesSV = recent.map(() => useSharedValue(0));
+  const expensesSV = recent.map(() => useSharedValue(0));
+  useEffect(() => {
+    recent.forEach((d, i) => {
+      incomesSV[i].value = 0;
+      expensesSV[i].value = 0;
+      incomesSV[i].value = withDelay(
+        40 * i,
+        withTiming(d.income / maxValue, { duration: 600, easing: Easing.out(Easing.cubic) })
+      );
+      expensesSV[i].value = withDelay(
+        40 * i + 120,
+        withTiming(d.expenses / maxValue, { duration: 600, easing: Easing.out(Easing.cubic) })
+      );
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [recent.map((r) => `${r.period}:${r.income}:${r.expenses}`).join(","), maxValue]);
+  const AnimatedRect: any = Animated.createAnimatedComponent(Rect as any);
+
+  const formatLabel = (period: string) => {
+    try {
+      if (granularity === "month") {
+        const [yStr, mStr] = period.split("-");
+        return new Date(parseInt(yStr), parseInt(mStr) - 1, 1).toLocaleDateString("pt-BR", {
+          month: "short",
+        });
+      } else if (granularity === "day") {
+        return new Date(period).toLocaleDateString("pt-BR", { day: "2-digit" });
+      } else if (granularity === "week") {
+        return "S" + period.split("-")[1];
+      }
+      return period;
+    } catch {
+      return period;
+    }
+  };
+
+  // Paths linhas
+  let trendPathStr = "";
+  if (showTrendLine && trendPoints.length === recent.length && trendPoints.length > 1) {
+    trendPathStr = trendPoints
+      .map((p, i) => {
+        const px = 24 + i * gap + barWidth / 2;
+        const py = y(p.y);
+        return `${i === 0 ? "M" : "L"}${px},${py}`;
+      })
+      .join(" ");
+  }
+  let maPathStr = "";
+  if (showMovingAverage && maPoints.length === recent.length && maPoints.length > 1) {
+    maPathStr = maPoints
+      .map((p, i) => {
+        const px = 24 + i * gap + barWidth / 2;
+        const py = y(p.y);
+        return `${i === 0 ? "M" : "L"}${px},${py}`;
+      })
+      .join(" ");
+  }
+
+  const svg = (
+    <Svg
+      width={totalWidth}
+      height={chartHeight}
+      accessibilityLabel="Gráfico mensal de entradas vs saídas"
+    >
+      <Defs>
+        <LinearGradient id="incomeGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+          <Stop offset="0%" stopColor="#10b981" />
+          <Stop offset="100%" stopColor="#059669" />
+        </LinearGradient>
+        <LinearGradient id="expenseGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+          <Stop offset="0%" stopColor="#f87171" />
+          <Stop offset="100%" stopColor="#dc2626" />
+        </LinearGradient>
+      </Defs>
+      <Line
+        x1={0}
+        y1={chartHeight - paddingBottom}
+        x2={totalWidth}
+        y2={chartHeight - paddingBottom}
+        stroke="#d1d5db"
+        strokeWidth={1}
+        strokeDasharray="3 5"
+      />
+      <G>
+        {recent.map((d, i) => {
+          const incomeAnimatedProps = useAnimatedProps(() => {
+            const ratio = incomesSV[i].value;
+            const h = ratio * (chartHeight - paddingBottom - 8);
+            const yPos = chartHeight - paddingBottom - h;
+            return { y: yPos, height: h } as any;
+          });
+          const expenseAnimatedProps = useAnimatedProps(() => {
+            const ratio = expensesSV[i].value;
+            const h = ratio * (chartHeight - paddingBottom - 8);
+            const yPos = chartHeight - paddingBottom - h;
+            return { y: yPos, height: h } as any;
+          });
+          return (
+            <G key={d.period}>
+              <AnimatedRect
+                x={24 + i * gap}
+                width={barWidth / 2}
+                animatedProps={incomeAnimatedProps}
+                fill="url(#incomeGrad)"
+                rx={2}
+                ry={2}
+                opacity={0.95}
+              />
+              <AnimatedRect
+                x={24 + i * gap + barWidth / 2 + 2}
+                width={barWidth / 2}
+                animatedProps={expenseAnimatedProps}
+                fill="url(#expenseGrad)"
+                rx={2}
+                ry={2}
+                opacity={0.95}
+              />
+              <SvgText
+                x={24 + i * gap + barWidth / 2 + 1}
+                y={chartHeight - paddingBottom + 12}
+                fontSize={9}
+                fill="#6b7280"
+                textAnchor="middle"
+              >
+                {formatLabel(d.period)}
+              </SvgText>
+            </G>
+          );
+        })}
+      </G>
+      {trendPathStr && (
+        <Path d={trendPathStr} stroke="#16a34a" strokeWidth={2} fill="none" strokeLinecap="round" />
+      )}
+      {maPathStr && (
+        <Path
+          d={maPathStr}
+          stroke="#8b5cf6"
+          strokeWidth={2}
+          fill="none"
+          strokeDasharray="4 4"
+          strokeLinecap="round"
+        />
+      )}
+    </Svg>
+  );
+
   return (
-    <View className="rounded-xl bg-white p-5 shadow-sm dark:bg-gray-800">
+    <View className="overflow-hidden rounded-xl bg-white p-5 shadow-sm dark:bg-gray-800">
       <Text className="mb-1 text-base font-semibold text-gray-900 dark:text-white">
         Entradas vs Saídas
       </Text>
       {current && (
         <View className="mb-3">
           <Text className="text-xs text-gray-600 dark:text-gray-400">
-            Mês atual ({current.period}): Receitas {current.income.toFixed(2)} | Despesas{" "}
+            Período atual ({current.period}): Receitas {current.income.toFixed(2)} | Despesas{" "}
             {current.expenses.toFixed(2)} | Saldo {current.balance.toFixed(2)}
           </Text>
           <View className="mt-1 flex-row flex-wrap gap-x-3">
@@ -89,125 +270,43 @@ export const MonthlyTrendsChart: React.FC<Props> = ({
           </View>
         </View>
       )}
-      <View className="relative">
-        <View className="flex-row items-end justify-between">
-          {recent.map((d) => {
-            const incomeHeight = Math.max(4, Math.round((d.income / maxValue) * 80));
-            const expenseHeight = Math.max(4, Math.round((d.expenses / maxValue) * 80));
-            const [year, month] = d.period.split("-");
-            const monthLabel = new Date(parseInt(year), parseInt(month) - 1, 1).toLocaleDateString(
-              "pt-BR",
-              { month: "short" }
-            );
-            return (
-              <View key={d.period} className="mx-[2px] flex-1 items-center">
-                <View className="flex-row items-end">
-                  <View
-                    style={{ height: incomeHeight }}
-                    className="w-3 rounded-sm bg-green-500 dark:bg-green-400"
-                    accessibilityLabel={`Receitas ${monthLabel}: ${d.income}`}
-                  />
-                  <View className="w-1" />
-                  <View
-                    style={{ height: expenseHeight }}
-                    className="w-3 rounded-sm bg-red-500 dark:bg-red-400"
-                    accessibilityLabel={`Despesas ${monthLabel}: ${d.expenses}`}
-                  />
-                </View>
-                <Text
-                  className="mt-1 text-[10px] text-gray-600 dark:text-gray-400"
-                  numberOfLines={1}
-                >
-                  {monthLabel}
-                </Text>
-              </View>
-            );
-          })}
-        </View>
-        {(showTrendLine || showMovingAverage) && (
-          <View className="pointer-events-none absolute left-0 right-0 top-0 h-[96px]">
-            {showTrendLine &&
-              trendPoints.length === recent.length &&
-              trendPoints.map((p, i) => {
-                if (i === 0) return null;
-                const prev = trendPoints[i - 1];
-                const x1 = (prev.x / (trendPoints.length - 1)) * 100;
-                const x2 = (p.x / (trendPoints.length - 1)) * 100;
-                const y1 = 80 - (prev.y / maxValue) * 80;
-                const y2 = 80 - (p.y / maxValue) * 80;
-                const dx = x2 - x1;
-                const dy = y2 - y1;
-                const length = Math.sqrt(dx * dx + dy * dy);
-                const angle = Math.atan2(dy, dx) * (180 / Math.PI);
-                return (
-                  <View
-                    key={"trend-" + i}
-                    style={{
-                      position: "absolute",
-                      left: `${x1}%`,
-                      top: y1,
-                      width: `${length}%`,
-                      transform: [{ rotate: `${angle}deg` }],
-                    }}
-                    className="h-[2px] bg-blue-500/70 dark:bg-blue-300"
-                  />
-                );
-              })}
-            {showMovingAverage &&
-              maPoints.length === recent.length &&
-              maPoints.map((p, i) => {
-                if (i === 0) return null;
-                const prev = maPoints[i - 1];
-                const x1 = (prev.x / (maPoints.length - 1)) * 100;
-                const x2 = (p.x / (maPoints.length - 1)) * 100;
-                const y1 = 80 - (prev.y / maxValue) * 80;
-                const y2 = 80 - (p.y / maxValue) * 80;
-                const dx = x2 - x1;
-                const dy = y2 - y1;
-                const length = Math.sqrt(dx * dx + dy * dy);
-                const angle = Math.atan2(dy, dx) * (180 / Math.PI);
-                return (
-                  <View
-                    key={"ma-" + i}
-                    style={{
-                      position: "absolute",
-                      left: `${x1}%`,
-                      top: y1,
-                      width: `${length}%`,
-                      transform: [{ rotate: `${angle}deg` }],
-                    }}
-                    className="h-[2px] bg-purple-500/70 dark:bg-purple-300"
-                  />
-                );
-              })}
-          </View>
-        )}
-      </View>
+      {totalWidth > windowW - 32 ? (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+          {svg}
+        </ScrollView>
+      ) : (
+        svg
+      )}
       <View className="mt-4 flex-row flex-wrap justify-center gap-4">
-        <View className="flex-row items-center">
-          <View className="mr-1 h-2 w-2 rounded-sm bg-green-500 dark:bg-green-400" />
-          <Text className="text-xs text-gray-600 dark:text-gray-400">Entradas</Text>
-        </View>
-        <View className="flex-row items-center">
-          <View className="mr-1 h-2 w-2 rounded-sm bg-red-500 dark:bg-red-400" />
-          <Text className="text-xs text-gray-600 dark:text-gray-400">Saídas</Text>
-        </View>
-        {showTrendLine && (
-          <View className="flex-row items-center">
-            <View className="mr-1 h-[2px] w-4 bg-blue-500 dark:bg-blue-300" />
-            <Text className="text-xs text-gray-600 dark:text-gray-400">Tendência</Text>
-          </View>
-        )}
-        {showMovingAverage && (
-          <View className="flex-row items-center">
-            <View className="mr-1 h-[2px] w-4 bg-purple-500 dark:bg-purple-300" />
-            <Text className="text-xs text-gray-600 dark:text-gray-400">Média 3m</Text>
-          </View>
-        )}
+        <Legend color="#16a34a" label="Entradas" />
+        <Legend color="#dc2626" label="Saídas" />
+        {showTrendLine && <Legend color="#16a34a" label="Tendência" line />}
+        {showMovingAverage && <Legend color="#8b5cf6" label="Média 3p" dashed />}
       </View>
     </View>
   );
 };
+
+const Legend = ({
+  color,
+  label,
+  line,
+  dashed,
+}: {
+  color: string;
+  label: string;
+  line?: boolean;
+  dashed?: boolean;
+}) => (
+  <View className="flex-row items-center">
+    {line ? (
+      <View style={{ width: 16, height: 2, backgroundColor: color, borderRadius: 1 }} />
+    ) : (
+      <View style={{ width: 10, height: 10, backgroundColor: color, borderRadius: 2 }} />
+    )}
+    <Text className="ml-1 text-xs text-gray-600 dark:text-gray-400">{label}</Text>
+  </View>
+);
 
 interface DeltaProps {
   label: string;

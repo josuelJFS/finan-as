@@ -1,7 +1,11 @@
 import React, { useEffect, useState, useMemo } from "react";
 import { View, Text, TouchableOpacity, ActivityIndicator, ScrollView } from "react-native";
 import { TransactionDAO } from "../../lib/database";
-import { MonthlyTrendsChart } from "../../components";
+import { MonthlyTrendsChart, CategoryDistributionChart } from "../../components";
+import { ProgressRing } from "../../components/charts/ProgressRing";
+import { Sparkline } from "../../components/charts/Sparkline";
+import { HeatmapCalendar } from "../../components/charts/HeatmapCalendar";
+import { BudgetDAO } from "../../lib/database/BudgetDAO";
 import type { MonthlyTrend } from "../../lib/database/TransactionDAO";
 
 function computeTrendLine(points: { x: number; y: number }[]) {
@@ -27,24 +31,88 @@ function computeTrendLine(points: { x: number; y: number }[]) {
 export default function DashboardScreen() {
   const [trends, setTrends] = useState<MonthlyTrend[]>([]);
   const [loading, setLoading] = useState(true);
-  const [range, setRange] = useState<6 | 12>(6);
+  const [range, setRange] = useState<number>(6);
+  const [granularity, setGranularity] = useState<"day" | "week" | "month" | "year">("month");
+  const [categorySummary, setCategorySummary] = useState<any[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [budgetProgress, setBudgetProgress] = useState<any[]>([]);
+  const [dailyActivity, setDailyActivity] = useState<{ date: string; value: number }[]>([]);
 
+  // Carregar tendências conforme granularidade e range
   useEffect(() => {
     (async () => {
       setLoading(true);
       setError(null);
       try {
         const dao = TransactionDAO.getInstance();
-        const data = await dao.getMonthlyTrends(12); // carregamos até 12 e recortamos
-        setTrends(data);
+        // Carregar períodos extras para trend line (ex: range + 2)
+        const base = await dao.getTrends(granularity, Math.max(range + 2, range));
+        setTrends(base);
+        // Calcular intervalo de datas para resumo de categorias (apenas se granularity != year)
+        let dateFrom: string | undefined;
+        let dateTo: string | undefined;
+        if (base.length) {
+          const slice = base.slice(-range);
+          const first = slice[0];
+          const last = slice[slice.length - 1];
+          if (granularity === "day") {
+            dateFrom = first.period;
+            dateTo = last.period;
+          } else if (granularity === "week") {
+            // Converter semana (YYYY-WW) para datas aproximadas: usar segunda da semana e domingo
+            const weekToDate = (p: string, end?: boolean) => {
+              const [y, w] = p.split("-");
+              const year = parseInt(y);
+              const week = parseInt(w);
+              const jan4 = new Date(year, 0, 4); // ISO anchor
+              const dayOfWeek = jan4.getDay() || 7; // 1..7
+              const isoWeekStart = new Date(jan4);
+              isoWeekStart.setDate(jan4.getDate() - (dayOfWeek - 1) + (week - 1) * 7);
+              if (end) {
+                const endDate = new Date(isoWeekStart);
+                endDate.setDate(endDate.getDate() + 6);
+                return endDate.toISOString().split("T")[0];
+              }
+              return isoWeekStart.toISOString().split("T")[0];
+            };
+            dateFrom = weekToDate(first.period);
+            dateTo = weekToDate(last.period, true);
+          } else if (granularity === "month") {
+            const toParts = last.period.split("-");
+            dateFrom = first.period + "-01";
+            const [ly, lm] = toParts; // last year, month
+            const lastDate = new Date(parseInt(ly), parseInt(lm), 0);
+            dateTo = lastDate.toISOString().split("T")[0];
+          } else if (granularity === "year") {
+            dateFrom = slice[0].period + "-01-01";
+            const ly = slice[slice.length - 1].period;
+            dateTo = ly + "-12-31";
+          }
+        }
+        try {
+          const cat = await dao.getCategorySummary(dateFrom, dateTo, "expense");
+          setCategorySummary(cat);
+        } catch {}
+        try {
+          const activity = await dao.getDailyActivity(70, "expense");
+          setDailyActivity(activity);
+        } catch (e) {
+          if (__DEV__) console.log("Erro daily activity", e);
+        }
+        try {
+          const bdao = BudgetDAO.getInstance();
+          const progress = await bdao.getCurrentActiveBudgets();
+          setBudgetProgress(progress.slice(0, 3));
+        } catch (e) {
+          if (__DEV__) console.log("Erro budgets dashboard", e);
+        }
       } catch (e: any) {
         setError(e.message || "Falha ao carregar");
       } finally {
         setLoading(false);
       }
     })();
-  }, []);
+  }, [granularity, range]);
 
   const visible = useMemo(() => trends.slice(-range), [trends, range]);
   const last12 = useMemo(() => trends.slice(-12), [trends]);
@@ -111,19 +179,47 @@ export default function DashboardScreen() {
       contentContainerStyle={{ paddingBottom: 40 }}
     >
       <Text className="mb-4 text-2xl font-bold text-gray-900 dark:text-white">Dashboard</Text>
-      <View className="mb-4 flex-row rounded-md bg-white p-1 dark:bg-gray-800">
-        {[6, 12].map((r) => (
+      {/* Seletores de granularidade */}
+      <View className="mb-2 flex-row rounded-md bg-white p-1 dark:bg-gray-800">
+        {(["day", "week", "month", "year"] as const).map((g) => (
           <TouchableOpacity
-            key={r}
-            onPress={() => setRange(r as 6 | 12)}
-            className={`flex-1 rounded-md py-2 ${range === r ? "bg-blue-600" : ""}`}
+            key={g}
+            onPress={() => {
+              setGranularity(g);
+              setRange(g === "day" ? 7 : g === "week" ? 8 : g === "month" ? 6 : 5);
+            }}
+            className={`flex-1 rounded-md py-2 ${granularity === g ? "bg-green-600" : ""}`}
           >
             <Text
-              className={`text-center text-sm font-semibold ${
-                range === r ? "text-white" : "text-gray-700 dark:text-gray-300"
-              }`}
+              className={`text-center text-[11px] font-semibold ${granularity === g ? "text-white" : "text-gray-700 dark:text-gray-300"}`}
             >
-              Últimos {r}m
+              {g === "day" ? "Dia" : g === "week" ? "Semana" : g === "month" ? "Mês" : "Ano"}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+      {/* Seleção de range numérico adaptativo */}
+      <View className="mb-4 flex-row rounded-md bg-white p-1 dark:bg-gray-800">
+        {[
+          granularity === "day" ? 7 : granularity === "week" ? 4 : 3,
+          granularity === "day" ? 14 : granularity === "week" ? 8 : granularity === "month" ? 6 : 5,
+          granularity === "day"
+            ? 30
+            : granularity === "week"
+              ? 12
+              : granularity === "month"
+                ? 12
+                : 10,
+        ].map((r) => (
+          <TouchableOpacity
+            key={r}
+            onPress={() => setRange(r)}
+            className={`flex-1 rounded-md py-2 ${range === r ? "bg-green-600" : ""}`}
+          >
+            <Text
+              className={`text-center text-[11px] font-semibold ${range === r ? "text-white" : "text-gray-700 dark:text-gray-300"}`}
+            >
+              Últimos {r}
             </Text>
           </TouchableOpacity>
         ))}
@@ -148,7 +244,58 @@ export default function DashboardScreen() {
       )}
       {!loading && !error && visible.length > 0 && (
         <View className="space-y-4">
-          <MonthlyTrendsChart data={trends} months={range} showTrendLine showMovingAverage />
+          <MonthlyTrendsChart
+            data={trends}
+            periods={range}
+            granularity={granularity}
+            showTrendLine
+            showMovingAverage
+          />
+          {/* Sparkline de saldo recente */}
+          {visible.length > 2 && (
+            <View className="rounded-xl bg-white p-4 dark:bg-gray-800">
+              <Text className="mb-2 text-base font-semibold text-gray-900 dark:text-white">
+                Mini Tendência do Saldo
+              </Text>
+              <Sparkline
+                data={visible.map((v) => ({ value: v.balance }))}
+                width={120}
+                height={40}
+                color="#16a34a"
+              />
+            </View>
+          )}
+          {categorySummary.length > 0 && <CategoryDistributionChart data={categorySummary} />}
+          {budgetProgress.length > 0 && (
+            <View className="rounded-xl bg-white p-4 dark:bg-gray-800">
+              <Text className="mb-3 text-base font-semibold text-gray-900 dark:text-white">
+                Orçamentos Ativos
+              </Text>
+              <View className="flex-row justify-around">
+                {budgetProgress.map((bp) => (
+                  <View key={bp.budget.id} className="items-center">
+                    <ProgressRing
+                      progress={bp.percentage}
+                      size={90}
+                      strokeWidth={8}
+                      title={undefined}
+                      subtitle={bp.budget.category_name || bp.budget.name}
+                    />
+                    <Text className="mt-1 text-[10px] text-gray-600 dark:text-gray-400">
+                      {bp.spent.toFixed(0)} / {bp.budget.amount.toFixed(0)}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          )}
+          {dailyActivity.length > 0 && (
+            <HeatmapCalendar
+              data={dailyActivity}
+              title="Atividade de Despesa (70d)"
+              modeLabel="Gasto"
+            />
+          )}
           <View className="rounded-xl bg-white p-4 dark:bg-gray-800">
             <Text className="mb-2 text-base font-semibold text-gray-900 dark:text-white">
               Tendência do Saldo

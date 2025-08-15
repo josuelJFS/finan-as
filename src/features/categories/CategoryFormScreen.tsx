@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { View, Text, TextInput, TouchableOpacity, Alert, ScrollView } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { Category, TransactionType } from "../../types/entities";
 import { CategoryDAO } from "../../lib/database/CategoryDAO";
 
@@ -30,7 +31,7 @@ const CATEGORY_COLORS = [
   "#14b8a6",
   "#06b6d4",
   "#0ea5e9",
-  "#3b82f6",
+  "#16a34a",
   "#6366f1",
   "#8b5cf6",
   "#a855f7",
@@ -42,44 +43,210 @@ const CATEGORY_COLORS = [
   "#374151",
 ];
 
-const CATEGORY_ICONS = [
-  "restaurant",
-  "car",
-  "home",
-  "medical",
-  "school",
-  "game-controller",
-  "shirt",
-  "gift",
-  "airplane",
-  "fitness",
-  "card",
-  "wallet",
-  "briefcase",
-  "trending-up",
-  "library",
-  "musical-notes",
-  "basket",
-  "bus",
-  "call",
-  "coffee",
+// Grupos de ícones com biblioteca. id salvo como `${lib}:${name}` (ex: ion:wallet / mci:dog )
+interface IconGroup {
+  label: string;
+  lib: "ion" | "mci";
+  icons: string[];
+}
+const ICON_GROUPS: IconGroup[] = [
+  {
+    label: "Básico",
+    lib: "ion",
+    icons: [
+      "pricetag",
+      "wallet",
+      "card",
+      "cash",
+      "briefcase",
+      "pie-chart",
+      "trending-up",
+      "trending-down",
+      "stats-chart",
+      "bar-chart",
+      "swap-horizontal",
+      "alarm",
+    ],
+  },
+  {
+    label: "Casa",
+    lib: "ion",
+    icons: [
+      "home",
+      "bed",
+      "bulb",
+      "water",
+      "construct",
+      "hardware-chip",
+      "phone-portrait",
+      "desktop",
+      "laptop",
+      "tv",
+      "hammer",
+    ],
+  },
+  {
+    label: "Alimentação",
+    lib: "ion",
+    icons: [
+      "restaurant",
+      "fast-food",
+      "pizza",
+      "cafe",
+      "ice-cream",
+      "nutrition",
+      "beer",
+      "wine",
+      "fish",
+      "egg",
+    ],
+  },
+  {
+    label: "Transporte",
+    lib: "ion",
+    icons: [
+      "car",
+      "bus",
+      "bicycle",
+      "airplane",
+      "boat",
+      "train",
+      "walk",
+      "rocket",
+      "subway",
+      "trail-sign",
+    ],
+  },
+  {
+    label: "Saúde",
+    lib: "ion",
+    icons: [
+      "medical",
+      "medkit",
+      "bandage",
+      "heart",
+      "fitness",
+      "nutrition",
+      "pulse",
+      "eyedrop",
+      "thermometer",
+    ],
+  },
+  {
+    label: "Educação",
+    lib: "ion",
+    icons: ["school", "library", "book", "globe", "pencil", "newspaper", "document-text"],
+  },
+  {
+    label: "Lazer",
+    lib: "ion",
+    icons: [
+      "game-controller",
+      "musical-notes",
+      "film",
+      "play",
+      "football",
+      "tennisball",
+      "basketball",
+      "color-palette",
+      "camera",
+      "headset",
+    ],
+  },
+  {
+    label: "Compras",
+    lib: "ion",
+    icons: ["basket", "bag", "gift", "shirt", "pricetag", "storefront", "cart"],
+  },
+  {
+    label: "Trabalho/Renda",
+    lib: "ion",
+    icons: [
+      "briefcase",
+      "hammer",
+      "construct",
+      "receipt",
+      "people",
+      "person",
+      "cash",
+      "wallet",
+      "cloud-upload",
+      "cloud-download",
+    ],
+  },
+  {
+    label: "Tecnologia",
+    lib: "ion",
+    icons: [
+      "phone-portrait",
+      "hardware-chip",
+      "calculator",
+      "desktop",
+      "laptop",
+      "code-slash",
+      "server",
+      "cloud",
+      "wifi",
+      "git-branch",
+    ],
+  },
+  {
+    label: "Pets",
+    lib: "mci",
+    icons: [
+      "paw",
+      "paw-outline",
+      "dog",
+      "dog-side",
+      "cat",
+      "rabbit",
+      "hamster",
+      "fish",
+      "fishbowl",
+      "bird",
+      "turtle",
+      "bone",
+    ],
+  },
+  {
+    label: "Outros",
+    lib: "ion",
+    icons: [
+      "sparkles",
+      "extension-puzzle",
+      "leaf",
+      "flame",
+      "planet",
+      "rainy",
+      "sunny",
+      "moon",
+      "warning",
+      "shield-checkmark",
+    ],
+  },
 ];
+
+const ALL_ICONS = ICON_GROUPS.flatMap((g) => g.icons.map((i) => `${g.lib}:${i}`));
 
 export default function CategoryFormScreen() {
   const params = useLocalSearchParams();
   const categoryId = params.id as string;
+  const parentParam = params.parent as string | undefined;
   const isEditing = !!categoryId;
+  const insets = useSafeAreaInsets();
 
   const [formData, setFormData] = useState<CategoryFormData>({
     name: "",
     type: "expense",
     parent_id: null,
     color: CATEGORY_COLORS[0],
-    icon: CATEGORY_ICONS[0],
+    icon: ALL_ICONS[0], // Pode ser prefixado ou não; antigo formato sem prefixo continua suportado
     description: "",
   });
 
   const [parentCategories, setParentCategories] = useState<Category[]>([]);
+  const [iconGroup, setIconGroup] = useState<string>(ICON_GROUPS[0].label);
+  const [iconSearch, setIconSearch] = useState("");
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<FormErrors>({});
 
@@ -87,8 +254,25 @@ export default function CategoryFormScreen() {
     loadParentCategories();
     if (isEditing) {
       loadCategory();
+    } else if (parentParam) {
+      // Pré-selecionar parent e alinhar tipo
+      (async () => {
+        try {
+          const categoryDAO = CategoryDAO.getInstance();
+          const parentCat = await categoryDAO.findById(parentParam);
+          if (parentCat) {
+            setFormData((prev) => ({
+              ...prev,
+              parent_id: parentCat.id,
+              type: parentCat.type,
+            }));
+          }
+        } catch (e) {
+          // silent
+        }
+      })();
     }
-  }, [categoryId]);
+  }, [categoryId, parentParam]);
 
   const loadParentCategories = async () => {
     try {
@@ -175,8 +359,11 @@ export default function CategoryFormScreen() {
   };
 
   return (
-    <ScrollView className="flex-1 bg-gray-50 dark:bg-gray-900">
-      <View className="p-4">
+    <ScrollView
+      className="flex-1 bg-gray-50 dark:bg-gray-900"
+      contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, 16) + 24 }}
+    >
+      <View className="p-4 pb-2">
         {/* Nome */}
         <View className="mb-4">
           <Text className="mb-2 text-base font-medium text-gray-900 dark:text-white">
@@ -194,17 +381,18 @@ export default function CategoryFormScreen() {
           {errors.name && <Text className="mt-1 text-sm text-red-500">{errors.name}</Text>}
         </View>
 
-        {/* Tipo */}
-        <View className="mb-4">
+        {/* Tipo (travado se criando subcategoria) */}
+        <View className="mb-4 opacity-100">
           <Text className="mb-2 text-base font-medium text-gray-900 dark:text-white">Tipo</Text>
           <View className="flex-row">
             <TouchableOpacity
+              disabled={!!parentParam}
               onPress={() => setFormData((prev) => ({ ...prev, type: "expense" }))}
               className={`flex-1 rounded-l-lg border-b border-l border-t p-3 ${
                 formData.type === "expense"
                   ? "border-red-500 bg-red-500"
                   : "border-gray-300 bg-white dark:border-gray-600 dark:bg-gray-800"
-              }`}
+              } ${parentParam ? "opacity-60" : ""}`}
             >
               <Text
                 className={`text-center font-medium ${
@@ -215,12 +403,13 @@ export default function CategoryFormScreen() {
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
+              disabled={!!parentParam}
               onPress={() => setFormData((prev) => ({ ...prev, type: "income" }))}
               className={`flex-1 rounded-r-lg border-b border-r border-t p-3 ${
                 formData.type === "income"
                   ? "border-green-500 bg-green-500"
                   : "border-gray-300 bg-white dark:border-gray-600 dark:bg-gray-800"
-              }`}
+              } ${parentParam ? "opacity-60" : ""}`}
             >
               <Text
                 className={`text-center font-medium ${
@@ -231,6 +420,11 @@ export default function CategoryFormScreen() {
               </Text>
             </TouchableOpacity>
           </View>
+          {parentParam && (
+            <Text className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              Tipo herdado da categoria pai
+            </Text>
+          )}
         </View>
 
         {/* Categoria Pai */}
@@ -304,27 +498,102 @@ export default function CategoryFormScreen() {
           </View>
         </View>
 
-        {/* Ícone */}
+        {/* Ícones (grupos + busca) */}
         <View className="mb-4">
-          <Text className="mb-2 text-base font-medium text-gray-900 dark:text-white">Ícone</Text>
-          <View className="flex-row flex-wrap gap-2">
-            {CATEGORY_ICONS.map((icon) => (
-              <TouchableOpacity
-                key={icon}
-                onPress={() => setFormData((prev) => ({ ...prev, icon }))}
-                className={`h-12 w-12 items-center justify-center rounded-lg border-2 ${
-                  formData.icon === icon
-                    ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
-                    : "border-gray-300 bg-white dark:border-gray-600 dark:bg-gray-800"
-                }`}
-              >
-                <Ionicons
-                  name={icon as any}
-                  size={20}
-                  color={formData.icon === icon ? "#3b82f6" : "#6b7280"}
-                />
+          <View className="mb-2 flex-row items-center justify-between">
+            <Text className="text-base font-medium text-gray-900 dark:text-white">Ícone</Text>
+            <Text className="text-xs text-gray-500 dark:text-gray-400">
+              {ALL_ICONS.length} opções
+            </Text>
+          </View>
+          {/* Chips de grupos */}
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-2">
+            <View className="flex-row gap-2">
+              {ICON_GROUPS.map((g) => {
+                const active = g.label === iconGroup;
+                return (
+                  <TouchableOpacity
+                    key={g.label}
+                    onPress={() => {
+                      setIconGroup(g.label);
+                      setIconSearch("");
+                    }}
+                    className={`rounded-full px-3 py-1.5 ${
+                      active ? "bg-blue-500" : "bg-gray-200 dark:bg-gray-700"
+                    }`}
+                  >
+                    <Text
+                      className={`text-xs font-medium ${active ? "text-white" : "text-gray-700 dark:text-gray-200"}`}
+                    >
+                      {g.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </ScrollView>
+          {/* Busca ícone */}
+          <View className="mb-3 flex-row items-center rounded-lg bg-gray-100 px-2 dark:bg-gray-700">
+            <Ionicons name="search" size={16} color="#6b7280" />
+            <TextInput
+              value={iconSearch}
+              onChangeText={setIconSearch}
+              placeholder="Buscar ícone..."
+              placeholderTextColor="#9ca3af"
+              className="ml-1 flex-1 py-1.5 text-sm text-gray-900 dark:text-white"
+            />
+            {iconSearch.length > 0 && (
+              <TouchableOpacity onPress={() => setIconSearch("")}>
+                <Ionicons name="close" size={16} color="#9ca3af" />
               </TouchableOpacity>
-            ))}
+            )}
+          </View>
+          {/* Grid de ícones */}
+          <View className="flex-row flex-wrap gap-2">
+            {(iconSearch
+              ? ALL_ICONS.filter((i) => i.toLowerCase().includes(iconSearch.toLowerCase()))
+              : ICON_GROUPS.find((g) => g.label === iconGroup)!.icons.map(
+                  (i) => `${ICON_GROUPS.find((g) => g.label === iconGroup)!.lib}:${i}`
+                )
+            ).map((fullId) => {
+              const [lib, name] = fullId.split(":");
+              const normalizedSelected = formData.icon.includes(":")
+                ? formData.icon
+                : `ion:${formData.icon}`; // retrocompatível
+              const isActive = normalizedSelected === fullId;
+              return (
+                <TouchableOpacity
+                  key={fullId}
+                  onPress={() => setFormData((prev) => ({ ...prev, icon: fullId }))}
+                  className={`h-12 w-12 items-center justify-center rounded-lg border-2 ${
+                    isActive
+                      ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
+                      : "border-gray-300 bg-white dark:border-gray-600 dark:bg-gray-800"
+                  }`}
+                >
+                  {lib === "ion" ? (
+                    <Ionicons
+                      name={name as any}
+                      size={22}
+                      color={isActive ? "#2563eb" : "#6b7280"}
+                    />
+                  ) : (
+                    <MaterialCommunityIcons
+                      name={name as any}
+                      size={22}
+                      color={isActive ? "#2563eb" : "#6b7280"}
+                    />
+                  )}
+                </TouchableOpacity>
+              );
+            })}
+            {iconSearch &&
+              ALL_ICONS.filter((i) => i.toLowerCase().includes(iconSearch.toLowerCase())).length ===
+                0 && (
+                <Text className="mt-2 w-full text-center text-xs text-gray-500 dark:text-gray-400">
+                  Nenhum ícone encontrado
+                </Text>
+              )}
           </View>
         </View>
 
@@ -346,7 +615,7 @@ export default function CategoryFormScreen() {
         </View>
 
         {/* Botões */}
-        <View className="flex-row gap-3">
+        <View className="mt-2 flex-row gap-3">
           <TouchableOpacity
             onPress={() => router.back()}
             className="flex-1 rounded-lg bg-gray-200 py-3 dark:bg-gray-700"

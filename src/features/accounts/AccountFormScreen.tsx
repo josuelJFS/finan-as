@@ -16,7 +16,7 @@ const ACCOUNT_TYPES = [
 ] as const;
 
 const ACCOUNT_COLORS = [
-  "#3b82f6",
+  "#16a34a",
   "#ef4444",
   "#10b981",
   "#f59e0b",

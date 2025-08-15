@@ -64,8 +64,8 @@ export default function SettingsScreen() {
             className="flex-row items-center justify-between py-3"
           >
             <View className="flex-row items-center">
-              <View className="mr-3 h-10 w-10 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900">
-                <Ionicons name="color-palette" size={20} className="text-blue-600" />
+              <View className="mr-3 h-10 w-10 items-center justify-center rounded-full bg-green-100 dark:bg-green-900">
+                <Ionicons name="color-palette" size={20} className="text-green-600" />
               </View>
               <View>
                 <Text className="text-base font-medium text-gray-900 dark:text-white">Tema</Text>
@@ -99,7 +99,7 @@ export default function SettingsScreen() {
             <Switch
               value={showAccountBalances}
               onValueChange={setShowAccountBalances}
-              trackColor={{ false: "#d1d5db", true: "#3b82f6" }}
+              trackColor={{ false: "#d1d5db", true: "#16a34a" }}
               thumbColor={showAccountBalances ? "#ffffff" : "#f3f4f6"}
             />
           </View>
@@ -121,7 +121,7 @@ export default function SettingsScreen() {
             <Switch
               value={biometricEnabled}
               onValueChange={setBiometricEnabled}
-              trackColor={{ false: "#d1d5db", true: "#3b82f6" }}
+              trackColor={{ false: "#d1d5db", true: "#16a34a" }}
               thumbColor={biometricEnabled ? "#ffffff" : "#f3f4f6"}
             />
           </View>
@@ -170,23 +170,6 @@ export default function SettingsScreen() {
             </View>
             <Ionicons name="chevron-forward" size={20} className="text-gray-400" />
           </TouchableOpacity>
-
-          <TouchableOpacity className="flex-row items-center justify-between py-3">
-            <View className="flex-row items-center">
-              <View className="mr-3 h-10 w-10 items-center justify-center rounded-full bg-yellow-100 dark:bg-yellow-900">
-                <Ionicons name="pricetag" size={20} className="text-yellow-600" />
-              </View>
-              <View>
-                <Text className="text-base font-medium text-gray-900 dark:text-white">
-                  Categorias
-                </Text>
-                <Text className="text-sm text-gray-600 dark:text-gray-400">
-                  Gerenciar categorias
-                </Text>
-              </View>
-            </View>
-            <Ionicons name="chevron-forward" size={20} className="text-gray-400" />
-          </TouchableOpacity>
         </View>
 
         {/* Dados e Backup */}
@@ -200,8 +183,8 @@ export default function SettingsScreen() {
             className="flex-row items-center justify-between py-3"
           >
             <View className="flex-row items-center">
-              <View className="mr-3 h-10 w-10 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900">
-                <Ionicons name="cloud-upload" size={20} className="text-blue-600" />
+              <View className="mr-3 h-10 w-10 items-center justify-center rounded-full bg-green-100 dark:bg-green-900">
+                <Ionicons name="cloud-upload" size={20} className="text-green-600" />
               </View>
               <View>
                 <Text className="text-base font-medium text-gray-900 dark:text-white">

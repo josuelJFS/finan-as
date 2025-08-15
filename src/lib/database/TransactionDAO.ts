@@ -320,12 +320,106 @@ export class TransactionDAO {
       ORDER BY period ASC
     `);
 
-    return rows.map((row) => ({
-      period: row.period,
-      income: row.income,
-      expenses: row.expenses,
-      balance: row.income - row.expenses,
-    }));
+    return rows.map((row) => {
+      const income = row.income ?? row.total_income ?? 0;
+      const expenses = row.expenses ?? row.total_expense ?? 0;
+      return {
+        period: row.period,
+        income,
+        expenses,
+        balance: income - expenses,
+      };
+    });
+  }
+
+  /**
+   * Retorna tendências agregadas por granularidade (dia, semana, mês, ano)
+   * @param granularity 'day' | 'week' | 'month' | 'year'
+   * @param periods quantidade de períodos recentes (ex: últimos 30 dias, 12 semanas, 6 meses, 5 anos)
+   */
+  async getTrends(
+    granularity: "day" | "week" | "month" | "year",
+    periods: number
+  ): Promise<MonthlyTrend[]> {
+    const db = await this.getDb();
+
+    const config = {
+      day: { fmt: "%Y-%m-%d", unit: "days" },
+      week: { fmt: "%Y-%W", unit: "weeks" }, // %W: semana (segunda primeiro dia)
+      month: { fmt: "%Y-%m", unit: "months" },
+      year: { fmt: "%Y", unit: "years" },
+    } as const;
+
+    const { fmt, unit } = config[granularity];
+
+    // Ajuste de segurança para limites máximos razoáveis
+    const safePeriods = Math.min(
+      periods,
+      granularity === "day" ? 90 : granularity === "week" ? 52 : granularity === "month" ? 36 : 15
+    );
+
+    const rows = await db.getAllAsync<any>(`
+      SELECT 
+        strftime('${fmt}', occurred_at) as period,
+        SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END) as income,
+        SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END) as expenses
+      FROM transactions 
+      WHERE occurred_at >= date('now', '-${safePeriods} ${unit}')
+        AND is_pending = 0
+      GROUP BY strftime('${fmt}', occurred_at)
+      ORDER BY period ASC
+    `);
+    const map = new Map<string, { income: number; expenses: number }>();
+    rows.forEach((r) => {
+      const income = r.income ?? r.total_income ?? 0;
+      const expenses = r.expenses ?? r.total_expense ?? 0;
+      map.set(r.period, { income, expenses });
+    });
+
+    // Gerar a lista contínua de períodos terminando no período atual
+    const periodsList: string[] = [];
+    const now = new Date();
+    function pad(n: number) {
+      return n < 10 ? `0${n}` : `${n}`;
+    }
+    if (granularity === "day") {
+      for (let i = periods - 1; i >= 0; i--) {
+        const d = new Date(now);
+        d.setDate(d.getDate() - i);
+        periodsList.push(`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`);
+      }
+    } else if (granularity === "month") {
+      for (let i = periods - 1; i >= 0; i--) {
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        periodsList.push(`${d.getFullYear()}-${pad(d.getMonth() + 1)}`);
+      }
+    } else if (granularity === "year") {
+      for (let i = periods - 1; i >= 0; i--) {
+        periodsList.push(`${now.getFullYear() - i}`);
+      }
+    } else if (granularity === "week") {
+      // Aproximação: usar %W (semana começando segunda) do ano atual e retroceder datas
+      const d = new Date(now);
+      for (let i = periods - 1; i >= 0; i--) {
+        const tmp = new Date(d);
+        tmp.setDate(d.getDate() - i * 7);
+        // Calcular semana
+        const jan1 = new Date(tmp.getFullYear(), 0, 1);
+        const days = Math.floor((tmp.getTime() - jan1.getTime()) / 86400000);
+        const week = Math.floor((days + jan1.getDay()) / 7);
+        periodsList.push(`${tmp.getFullYear()}-${pad(week)}`);
+      }
+    }
+
+    return periodsList.map((p) => {
+      const rec = map.get(p) || { income: 0, expenses: 0 };
+      return {
+        period: p,
+        income: rec.income,
+        expenses: rec.expenses,
+        balance: rec.income - rec.expenses,
+      };
+    });
   }
 
   async getCategorySummary(
@@ -377,6 +471,59 @@ export class TransactionDAO {
       percentage: total > 0 ? (row.amount / total) * 100 : 0,
       transaction_count: row.transaction_count,
     }));
+  }
+
+  /**
+   * Retorna atividade diária (somatório absoluto ou separado) para heatmap.
+   * mode: 'net' => saldo (income - expenses); 'expense' => apenas despesas; 'income' => apenas receitas; 'abs' => income+expenses
+   */
+  async getDailyActivity(
+    days: number = 120,
+    mode: "net" | "expense" | "income" | "abs" = "expense"
+  ): Promise<{ date: string; value: number }[]> {
+    const db = await this.getDb();
+    const rows = await db.getAllAsync<any>(
+      `SELECT strftime('%Y-%m-%d', occurred_at) as day,
+        SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END) as income,
+        SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END) as expense
+       FROM transactions
+       WHERE occurred_at >= date('now', '-' || ? || ' days')
+         AND is_pending = 0
+       GROUP BY day
+       ORDER BY day ASC`,
+      [days]
+    );
+
+    const map = new Map<string, { income: number; expense: number }>();
+    rows.forEach((r) => map.set(r.day, { income: r.income || 0, expense: r.expense || 0 }));
+
+    const result: { date: string; value: number }[] = [];
+    const now = new Date();
+    for (let i = days - 1; i >= 0; i--) {
+      const d = new Date(now);
+      d.setDate(d.getDate() - i);
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, "0");
+      const dd = String(d.getDate()).padStart(2, "0");
+      const key = `${yyyy}-${mm}-${dd}`;
+      const rec = map.get(key) || { income: 0, expense: 0 };
+      let value = 0;
+      switch (mode) {
+        case "net":
+          value = rec.income - rec.expense;
+          break;
+        case "income":
+          value = rec.income;
+          break;
+        case "abs":
+          value = rec.income + rec.expense;
+          break;
+        default:
+          value = rec.expense;
+      }
+      result.push({ date: key, value });
+    }
+    return result;
   }
 
   private async updateAccountBalances(transaction: Transaction): Promise<void> {

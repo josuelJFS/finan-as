@@ -46,7 +46,7 @@ export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: "#3b82f6",
+        tabBarActiveTintColor: "#16a34a", // primary-600
         tabBarInactiveTintColor: isDark ? "#6b7280" : "#9ca3af",
         tabBarStyle: {
           backgroundColor: isDark ? "#1f2937" : "#ffffff",
@@ -128,6 +128,13 @@ export default function TabLayout() {
               )}
             </View>
           ),
+        }}
+      />
+      <Tabs.Screen
+        name="reports"
+        options={{
+          title: "Relatórios",
+          tabBarIcon: ({ color }) => <Ionicons name="stats-chart" size={22} color={color} />,
         }}
       />
       <Tabs.Screen

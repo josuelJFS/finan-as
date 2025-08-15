@@ -219,7 +219,7 @@ export function AccountSelector({
                       </View>
 
                       {selectedAccountId === account.id && (
-                        <Ionicons name="checkmark" size={20} style={{ color: "#3B82F6" }} />
+                        <Ionicons name="checkmark" size={20} style={{ color: "#16a34a" }} />
                       )}
                     </TouchableOpacity>
                   ))}

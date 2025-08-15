@@ -43,10 +43,10 @@ export const FilterChips: React.FC<FilterChipsProps> = ({
       <View className="flex-row items-center">
         <TouchableOpacity
           onPress={openPresets}
-          className="mr-2 rounded-full border border-blue-400 bg-blue-50 px-4 py-2 dark:border-blue-600 dark:bg-blue-900/30"
+          className="mr-2 rounded-full border border-primary-400 bg-primary-50 px-4 py-2 dark:border-primary-600 dark:bg-primary-900/30"
           accessibilityLabel={`Selecionar presets de período e tipos. ${accessibilitySummary}`}
         >
-          <Text className="text-xs font-medium text-blue-700 dark:text-blue-300">
+          <Text className="text-xs font-medium text-primary-700 dark:text-primary-300">
             {(() => {
               const labels: Record<string, string> = {
                 today: "Hoje",
@@ -93,10 +93,10 @@ export const FilterChips: React.FC<FilterChipsProps> = ({
             }
             return (
               <View
-                className="mr-2 rounded-full border border-purple-300 bg-purple-50 px-3 py-2 dark:border-purple-600 dark:bg-purple-900/30"
+                className="mr-2 rounded-full border border-primary-300 bg-primary-50 px-3 py-2 dark:border-primary-600 dark:bg-primary-900/30"
                 accessibilityLabel={`Resumo filtros avançados: ${accessibilitySummary}`}
               >
-                <Text className="text-[10px] font-medium text-purple-700 dark:text-purple-300">
+                <Text className="text-[10px] font-medium text-primary-700 dark:text-primary-300">
                   {label}
                 </Text>
               </View>
@@ -105,8 +105,8 @@ export const FilterChips: React.FC<FilterChipsProps> = ({
 
         {/* Chip de tipos selecionados (se houver) */}
         {filters.transaction_types && filters.transaction_types.length > 0 && (
-          <View className="mr-2 rounded-full border border-purple-400 bg-purple-50 px-3 py-2 dark:border-purple-600 dark:bg-purple-900/30">
-            <Text className="text-[10px] font-medium text-purple-700 dark:text-purple-300">
+          <View className="mr-2 rounded-full border border-primary-400 bg-primary-50 px-3 py-2 dark:border-primary-600 dark:bg-primary-900/30">
+            <Text className="text-[10px] font-medium text-primary-700 dark:text-primary-300">
               {filters.transaction_types
                 .map((t) => (t === "income" ? "+" : t === "expense" ? "-" : "⇄"))
                 .join("")}
@@ -118,7 +118,7 @@ export const FilterChips: React.FC<FilterChipsProps> = ({
           onPress={openAccounts}
           className={`mr-2 flex-row items-center rounded-full border px-4 py-2 ${
             filters.account_ids?.length
-              ? "border-green-500 bg-green-50 dark:bg-green-900/30"
+              ? "border-primary-500 bg-primary-50 dark:bg-primary-900/30"
               : "border-gray-300 bg-white dark:border-gray-600 dark:bg-gray-700"
           }`}
           accessibilityLabel={
@@ -130,7 +130,7 @@ export const FilterChips: React.FC<FilterChipsProps> = ({
           <Text
             className={`text-xs font-medium ${
               filters.account_ids?.length
-                ? "text-green-700 dark:text-green-300"
+                ? "text-primary-700 dark:text-primary-300"
                 : "text-gray-700 dark:text-gray-300"
             }`}
           >
@@ -149,7 +149,7 @@ export const FilterChips: React.FC<FilterChipsProps> = ({
             filters.is_pending !== undefined ||
             filters.include_transfers === false ||
             (filters.tags?.length && filters.tags_mode === "ALL")
-              ? "border-purple-500 bg-purple-50 dark:bg-purple-900/30"
+              ? "border-primary-500 bg-primary-50 dark:bg-primary-900/30"
               : "border-gray-300 bg-white dark:border-gray-600 dark:bg-gray-700"
           }`}
           accessibilityLabel={`Abrir filtros avançados. ${accessibilitySummary}`}
@@ -164,7 +164,7 @@ export const FilterChips: React.FC<FilterChipsProps> = ({
               filters.is_pending !== undefined ||
               filters.include_transfers === false ||
               (filters.tags?.length && filters.tags_mode === "ALL")
-                ? "text-purple-700 dark:text-purple-300"
+                ? "text-primary-700 dark:text-primary-300"
                 : "text-gray-700 dark:text-gray-300"
             }`}
           >
@@ -173,8 +173,8 @@ export const FilterChips: React.FC<FilterChipsProps> = ({
         </TouchableOpacity>
 
         {filters.tags?.length && filters.tags_mode === "ALL" && (
-          <View className="mr-2 rounded-full border border-indigo-400 bg-indigo-50 px-3 py-2 dark:border-indigo-600 dark:bg-indigo-900/30">
-            <Text className="text-[10px] font-medium text-indigo-700 dark:text-indigo-300">
+          <View className="mr-2 rounded-full border border-primary-400 bg-primary-50 px-3 py-2 dark:border-primary-600 dark:bg-primary-900/30">
+            <Text className="text-[10px] font-medium text-primary-700 dark:text-primary-300">
               Tags ALL
             </Text>
           </View>
@@ -189,14 +189,14 @@ export const FilterChips: React.FC<FilterChipsProps> = ({
           onPress={toggleIncludeTransfers}
           className={`mr-2 rounded-full border px-3 py-2 ${
             includeTransfers
-              ? "border-blue-300 bg-blue-50 dark:border-blue-600 dark:bg-blue-900/30"
+              ? "border-primary-400 bg-primary-50 dark:border-primary-600 dark:bg-primary-900/30"
               : "border-red-400 bg-red-50 dark:border-red-600 dark:bg-red-900/30"
           }`}
         >
           <Text
             className={`text-[10px] font-medium ${
               includeTransfers
-                ? "text-blue-700 dark:text-blue-300"
+                ? "text-primary-700 dark:text-primary-300"
                 : "text-red-600 dark:text-red-300"
             }`}
           >

@@ -329,7 +329,7 @@ export default function TransactionsListScreen() {
       case "expense":
         return "#ef4444"; // red
       case "transfer":
-        return "#3b82f6"; // blue
+        return "#16a34a"; // primary green
       default:
         return "#6b7280"; // gray
     }
@@ -436,34 +436,27 @@ export default function TransactionsListScreen() {
           </TouchableOpacity>
           {/* Config rápida CSV */}
           <View className="mb-2 mr-3 flex-row items-center">
-            <Text className="mr-1 text-[10px] text-gray-600 dark:text-gray-400">Sep</Text>
-            <TextInput
-              value={csvSeparator}
-              onChangeText={setCsvSeparator}
-              className="mr-1 w-8 rounded border border-gray-300 px-1 py-1 text-center text-[10px] dark:border-gray-600 dark:text-gray-100"
-              maxLength={2}
-              placeholder=","
-            />
+            <Text className="mr-1 text-[10px] text-gray-600 dark:text-gray-400">Separador</Text>
             <TouchableOpacity
-              onPress={() => setCsvSeparator(",")}
-              className="mr-1 rounded border border-gray-300 px-1 py-[2px] dark:border-gray-600"
+              onPress={() => setCsvSeparator(csvSeparator === "," ? ";" : ",")}
+              className="mr-2 flex-row items-center rounded-md border border-gray-300 px-2 py-1 dark:border-gray-600"
+              accessibilityLabel={`Alternar separador CSV. Atual: '${csvSeparator === "," ? "vírgula" : "ponto e vírgula"}'`}
             >
-              <Text className="text-[10px] text-gray-600 dark:text-gray-300">,</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => setCsvSeparator(";")}
-              className="mr-2 rounded border border-gray-300 px-1 py-[2px] dark:border-gray-600"
-            >
-              <Text className="text-[10px] text-gray-600 dark:text-gray-300">;</Text>
+              <Text className="text-[10px] font-medium text-gray-700 dark:text-gray-200">
+                {csvSeparator === "," ? ", (vírgula)" : "; (ponto e vírgula)"}
+              </Text>
             </TouchableOpacity>
             <TouchableOpacity
               onPress={() => setMarkTransfers((v) => !v)}
               className="flex-row items-center"
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: markTransfers }}
+              accessibilityLabel="Incluir marcador de transferência no CSV"
             >
               <View
                 className={`mr-1 h-4 w-4 items-center justify-center rounded border ${
                   markTransfers
-                    ? "border-blue-500 bg-blue-500"
+                    ? "border-primary-500 bg-primary-500"
                     : "border-gray-400 dark:border-gray-600"
                 }`}
               >

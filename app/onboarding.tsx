@@ -14,11 +14,11 @@ export default function OnboardingScreen() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-blue-500">
+    <SafeAreaView className="flex-1 bg-green-600">
       <View className="flex-1 items-center justify-center px-6">
         {/* Icon */}
         <View className="mb-8 h-24 w-24 items-center justify-center rounded-full bg-white">
-          <Ionicons name="wallet" size={48} color="#3b82f6" />
+          <Ionicons name="wallet" size={48} color="#16a34a" />
         </View>
 
         {/* Title */}
@@ -27,7 +27,7 @@ export default function OnboardingScreen() {
         </Text>
 
         {/* Subtitle */}
-        <Text className="mb-12 text-center text-lg leading-6 text-blue-100">
+        <Text className="mb-12 text-center text-lg leading-6 text-green-100">
           Gerencie suas finanças pessoais de forma simples e eficiente
         </Text>
 
@@ -59,7 +59,7 @@ export default function OnboardingScreen() {
           onPress={handleCompleteOnboarding}
           className="w-full rounded-full bg-white px-8 py-4"
         >
-          <Text className="text-center text-lg font-semibold text-blue-500">Começar agora</Text>
+          <Text className="text-center text-lg font-semibold text-green-600">Começar agora</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>

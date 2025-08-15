@@ -5,7 +5,15 @@ import { useEffect, useState } from "react";
 import { useRouter, useFocusEffect } from "expo-router";
 import { useCallback } from "react";
 import { AccountDAO, TransactionDAO, BudgetDAO } from "../../src/lib/database";
-import { MonthlyTrendsChart } from "../../src/components";
+import {
+  MonthlyTrendsChart,
+  SvgTrendsChart,
+  DonutCategoryChart,
+  AreaChart,
+  ProgressRing,
+  Sparkline,
+  ChartContainer,
+} from "../../src/components";
 import { Events } from "../../src/lib/events";
 import { formatCurrency } from "../../src/lib/utils";
 import type { Account, BalanceSummary } from "../../src/types/entities";
@@ -56,6 +64,9 @@ export default function DashboardScreen() {
     { id: string; name: string; percentage: number; remaining: number }[]
   >([]);
   const [monthlyTrends, setMonthlyTrends] = useState<any[]>([]);
+  const [catSummary, setCatSummary] = useState<any[]>([]);
+  const [catSummaryIncome, setCatSummaryIncome] = useState<any[]>([]);
+  const [donutType, setDonutType] = useState<"expense" | "income">("expense");
 
   const accountDAO = AccountDAO.getInstance();
   const transactionDAO = TransactionDAO.getInstance();
@@ -145,6 +156,18 @@ export default function DashboardScreen() {
       try {
         const trends = await transactionDAO.getMonthlyTrends(12);
         setMonthlyTrends(trends);
+        // Resumo categorias últimos 30 dias aprox (usando mês atual)
+        try {
+          const now = new Date();
+          const from = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split("T")[0];
+          const to = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split("T")[0];
+          const catExp = await transactionDAO.getCategorySummary(from, to, "expense");
+          setCatSummary(catExp);
+          try {
+            const catInc = await transactionDAO.getCategorySummary(from, to, "income");
+            setCatSummaryIncome(catInc);
+          } catch {}
+        } catch {}
       } catch (e) {
         console.warn("Falha ao carregar tendências mensais", e);
       }
@@ -251,9 +274,33 @@ export default function DashboardScreen() {
           </View>
         )}
 
-        {/* Gráfico Entradas vs Saídas */}
+        {/* Gráficos Modernos */}
         {monthlyTrends.length > 1 && (
-          <View className="mx-4 mt-6">
+          <View className="mx-4 mt-6 space-y-4">
+            {/* Gráfico de Área Principal */}
+            <AreaChart
+              data={monthlyTrends}
+              periods={6}
+              granularity="month"
+              title="Fluxo de Caixa"
+            />
+
+            {/* Gráfico SVG Atualizado */}
+            <SvgTrendsChart data={monthlyTrends} periods={6} granularity="month" />
+            {catSummary.length > 0 && (
+              <View className="mt-4">
+                <DonutCategoryChart
+                  data={donutType === "expense" ? catSummary : catSummaryIncome}
+                  maxItems={5}
+                  size={160}
+                  strokeWidth={20}
+                  title="Categorias"
+                  type={donutType}
+                  onToggleType={(t) => setDonutType(t)}
+                />
+              </View>
+            )}
+            <View className="mt-4" />
             <MonthlyTrendsChart data={monthlyTrends} months={6} showTrendLine showMovingAverage />
             {monthlyTrends.length >= 12 && (
               <View className="mt-4 rounded-lg bg-white p-4 dark:bg-gray-800">
@@ -413,37 +460,38 @@ export default function DashboardScreen() {
           </View>
         </View>
 
-        {/* Alertas de Orçamento */}
+        {/* Alertas de Orçamento com Progress Rings */}
         {budgetAlerts.length > 0 && (
           <View className="mx-4 mb-8">
             <Text className="mb-3 text-lg font-semibold text-gray-900 dark:text-white">
               Alertas de Orçamento
             </Text>
-            <View className="space-y-3">
+            <View className="flex-row flex-wrap gap-3">
               {budgetAlerts.map((a) => (
                 <View
                   key={a.id}
-                  className="rounded-lg border border-yellow-300 bg-yellow-50 p-4 dark:border-yellow-700 dark:bg-yellow-900/20"
+                  className="min-w-[120px] flex-1 rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-700 dark:bg-amber-900/20"
                 >
-                  <View className="flex-row items-center justify-between">
-                    <Text className="flex-1 text-base font-medium text-yellow-800 dark:text-yellow-200">
+                  <View className="items-center">
+                    <ProgressRing
+                      progress={a.percentage}
+                      size={60}
+                      strokeWidth={6}
+                      color={a.percentage >= 100 ? "#dc2626" : "#f59e0b"}
+                      showPercentage={false}
+                    />
+                    <Text
+                      className="mt-2 text-center text-sm font-medium text-amber-800 dark:text-amber-200"
+                      numberOfLines={1}
+                    >
                       {a.name}
                     </Text>
-                    <Text
-                      className={`text-sm font-semibold ${
-                        a.percentage >= 100
-                          ? "text-red-600 dark:text-red-400"
-                          : "text-yellow-700 dark:text-yellow-300"
-                      }`}
-                    >
-                      {a.percentage.toFixed(0)}%
+                    <Text className="mt-1 text-center text-xs text-amber-700 dark:text-amber-300">
+                      {a.remaining >= 0
+                        ? `${formatCurrency(a.remaining)} restantes`
+                        : `Excedeu ${formatCurrency(Math.abs(a.remaining))}`}
                     </Text>
                   </View>
-                  <Text className="mt-1 text-xs text-yellow-700 dark:text-yellow-300">
-                    {a.remaining >= 0
-                      ? `Restam ${formatCurrency(a.remaining)} antes do limite`
-                      : `Excedeu em ${formatCurrency(Math.abs(a.remaining))}`}
-                  </Text>
                 </View>
               ))}
             </View>

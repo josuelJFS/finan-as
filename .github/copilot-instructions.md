@@ -96,134 +96,142 @@ Aplicativo de finanças pessoais, offline-first, usando Expo (React Native + Typ
 - transactions (tipo, account_id, to_account_id, category_id, amount, occurred_at, note, tags, attachment, recurrence_id)
 - budgets (category_id, period_key, amount)
 - goals (nome, target_amount, deadline, allocated_amount)
-- recurrences (template_json, frequency, next_run_at)
+<!-- Versão condensada: somente pendências e melhorias futuras (Atualizado: Agosto 2025) -->
 
-⚠️ **Índices**:
+# AppFinança – Pendências & Roadmap Focado
 
-- (001) Criados: transactions(occurred_at), transactions(account_id), transactions(category_id), transactions(type), categories(parent_id), categories(type), budgets(category_id), budgets(period_start, period_end)
-- (002) Adicionados: transactions(destination_account_id), transactions(account_id, type, occurred_at), budgets(category_id, period_start, period_end)
+Mantemos aqui SOMENTE o que falta para 1.0 e melhorias pós 1.0 diretamente acionáveis.
 
-Benefício: aceleração de filtros por período/conta/categoria/tipo e cálculos agregados de orçamentos.
+Legenda: ❌ Pendente | 🔶 Em andamento | 🟡 Opcional (pós 1.0)
 
-## TELAS E NAVEGAÇÃO
+## 1. Pendência Crítica Única para 1.0
 
-✅ **Tabs**: Dashboard, Transações, Orçamentos, Configurações
-❌ **Stacks faltando**:
+❌ Gráficos Bonitos & Visualizações Avançadas (modernização final + interações)
 
-- Transações (detalhe, criar/editar)
-- Orçamentos (criar/editar)
-- Categorias (lista, criar/editar)
-- Contas (lista, criar/editar)
-- Recorrências (lista, criar/editar)
-- Importar/Exportar
+Tudo mais core de 1.0 já entregue (CRUDs, filtros avançados, dashboard YTD, export, recorrências, backup, alertas orçamento).
 
-## STATUS RECENTE (Conquistas Novas)
+## 2. Escopo Detalhado - Gráficos & Visualizações (Restante)
 
-✅ Atualização atômica de saldos ao criar/editar/excluir transações (transações + contas em uma DB transaction)  
-✅ Reatividade: event bus (transactions:\* / accounts:balancesChanged) atualiza listas e dashboard  
-✅ Filtros persistentes (lastUsedFilters) com restauração automática  
-✅ Filtros salvos (add/aplicar/remover) – versão mínima  
-✅ Indicador de filtros ativos no Dashboard  
-✅ Exportação CSV respeitando filtros + compartilhamento (expo-sharing / Share fallback)  
-✅ Query de progresso de orçamentos otimizada (redução de round-trips)
-✅ Cache incremental de progresso de orçamentos (tabela budget_progress_cache + invalidação simples por transação)  
-✅ Recorrências: CRUD completo (criar, editar, desativar, reativar, deletar) + materialização inicial + validações (frequência, intervalo, dias semana, fim opcional) + badge em transações  
-✅ Backup & Restore: export JSON versionado, compartilhamento, import com overwrite seguro e validação + UI dedicada em Settings  
-✅ Dashboard: toggle 6/12 meses + linha de tendência sobre gráfico + comparativos YTD vs anterior + melhor/pior mês (média móvel opcional pós 1.0)
+### 🔶 Já iniciado (precisa finalizar/polir)
 
-## PENDENTES OBRIGATÓRIOS 1.0
+- DonutCategoryChart: adicionar sweep animation de arco, tooltip acessível por screen reader, opção ordenar por percentual/valor.
+- SvgTrendsChart: tooltips por ponto/barra + haptics no tap longo, linha de média móvel suavizada (Bezier).
+- MonthlyTrendsChart (SVG): hover/tap highlight (estado visual) + exibir valores agregados on-demand.
+- AreaChart: adicionar animação de preenchimento (fade + clipPath), sobreposição de saldo como linha.
 
-✅ Filtros avançados Fase 2 completos (presets modal, resumo, acessibilidade, testes util, truncamento)  
-✅ Invalidação seletiva cache de orçamentos (fase 2 incluindo mudanças de data/categoria)  
-✅ Dashboard melhorias (linha tendência, YTD, melhor/pior mês)  
-✅ Export CSV v2: formatação regional números concluída
+### ❌ A Implementar (Core Restante)
 
-## OPCIONAIS (PÓS 1.0)
+- ChartTooltip reutilizável (portal overlay) com foco e acessibilidade.
+- ChartSkeletons específicos (barras, donut, area, heatmap, progress ring).
+- Gesture handling (pan/zoom) em gráficos temporais (SvgTrendsChart / AreaChart).
+- Drill-down categorias: Donut → ao tocar segmento “Outras” abrir modal com subcategorias.
+- Exportar gráfico como imagem (react-native-view-shot) + share.
+- Haptics consistente (tap seleção / long-press) para todos os gráficos interativos.
+- Performance pass: memoização de paths + useDerivedValue em animações.
 
-🟡 Goals (CRUD + progresso + integração dashboard)
-🟡 Anexos (captura, preview, limpeza órfãos)
-🟡 Multi-idioma completo
-🟡 Heatmap / drilldown avançado no Dashboard
-🟡 Automação / regras inteligentes futuras
-🟡 Criptografia de backup
-🟡 TagInput avançado + CategoryPill estética
-🟡 Métricas de performance / logger estruturado avançado
+### 🟡 Pós 1.0 (Avançado)
 
-## COMPONENTES REUTILIZÁVEIS
+- TreeMap (categorias hierárquicas).
+- WaterfallChart (fluxo caixa).
+- MultiLine / MultiMetric (receita, despesa, saldo, média móvel).
+- HeatmapCalendar: tooltips por dia + seletor de modo (despesa / receita / net / abs).
+- Scatter (valor x hora do dia) para detectar padrões.
+- Export batch (zip com PNGs + CSV consolidado).
 
-✅ MoneyInput  
-✅ DatePicker  
-✅ CategorySelector  
-✅ AccountSelector  
-✅ FilterChips (extraído)  
-✅ AdvancedFilterModal (extraído)  
-❌ CategoryPill  
-🟡 TagInput (planejado)
+## 3. Novas Melhorias Adicionadas (Solicitadas Agora)
 
-### 🎨 PADRÃO DE BOTÕES EM FORMULÁRIOS (OBRIGATÓRIO)
+1. Tooltips interativos (tap/press) nas barras e pontos (SVG overlay + estado)
+2. Skeleton loaders específicos (ex: barras cinzas; grid placeholder heatmap)
+3. Gestos (pan/zoom) nos gráficos de tendência (limitar escala + inércia suave)
+4. Exportar gráfico como imagem (react-native-view-shot) – após polish base
 
-Para formulários de criar/editar, SEMPRE usar botões dentro do ScrollView com espaçamento seguro:
+## 4. Ordem de Execução Recomendada (Curto Prazo)
 
-**Estrutura obrigatória:**
+1. Infra Tooltip + Skeletons (destrava consistência visual)
+2. Tooltips em: SvgTrendsChart → MonthlyTrendsChart → Donut → AreaChart
+3. Animações finais (sweep donut, fill area, stagger refinado com Reanimated)
+4. Gestos pan/zoom (Trends/Area) + limites performance (throttle repaint)
+5. Export como imagem + share
+6. Drill-down categorias (modal) + haptics unificado
 
-```tsx
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+## 5. Estrutura de Componentes (Alvo)
 
-const insets = useSafeAreaInsets();
-const bottomPadding = insets.bottom + 24; // espaço para botões dentro do scroll
+src/components/charts/
+├── AreaChart.tsx (animação clipPath pendente)  
+├── DonutCategoryChart.tsx (sweep + tooltip acessível pendente)  
+├── SvgTrendsChart.tsx (tooltips + pan/zoom pendente)  
+├── MonthlyTrendsChart.tsx (tooltips + highlight)  
+├── ProgressRing.tsx (ok – adicionar estado exceeded)  
+├── Sparkline.tsx (ok – tooltip opcional)  
+├── HeatmapCalendar.tsx (tooltip + modos)  
+└── common/ (a criar)  
+ ├── ChartTooltip.tsx  
+ ├── ChartSkeleton.tsx  
+ └── PanZoomGestureWrapper.tsx
 
-return (
-  <SafeAreaView className="flex-1 bg-gray-50 dark:bg-gray-900">
-    <ScrollView
-      className="flex-1"
-      contentContainerStyle={{ padding: 16, paddingBottom: bottomPadding }}
-      keyboardShouldPersistTaps="handled"
-    >
-      <View>
-        {/* Conteúdo do formulário */}
+## 6. Requisitos Técnicos para Implementação de Tooltips
 
-        {/* Botões dentro do scroll */}
-        <View className="mt-2 flex-row gap-3 border-t border-gray-200 pt-3 dark:border-gray-700">
-          <TouchableOpacity
-            onPress={handleCancel}
-            className="flex-1 rounded-md bg-gray-200 py-3 dark:bg-gray-700"
-          >
-            <Text className="text-center font-semibold text-gray-900 dark:text-white">
-              Cancelar
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={handleSave}
-            disabled={loading}
-            className={`flex-1 rounded-md py-3 ${
-              loading ? "bg-gray-300 dark:bg-gray-600" : "bg-blue-500"
-            }`}
-          >
-            <Text className="text-center font-semibold text-white">
-              {loading ? "Salvando..." : isEditing ? "Atualizar" : "Criar"}
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    </ScrollView>
-  </SafeAreaView>
-);
-```
+- Overlay absoluto fora do SVG (evitar clipping) usando portal/provider.
+- Cálculo de posição segura (ajuste para bordas; fallback central se overflow > 80%).
+- Anunciar via accessibilityLiveRegion (mensagem: "Receitas Mai/24: R$ 1.234,00").
+- Timeout opcional para esconder (4s) ao usar tap rápido.
+- Reutilizável: aceitar { title, lines[], accentColor }.
 
-**Pontos críticos:**
+## 7. Skeletons Específicos (Spec)
 
-- `paddingBottom: insets.bottom + 24` no ScrollView para espaço dos botões
-- Botões DENTRO do ScrollView (rolam junto com o conteúdo)
-- `border-t` + `pt-3` para separar visualmente dos campos
-- `py-3` nos botões para área de toque adequada
-- `keyboardShouldPersistTaps="handled"` para funcionamento do teclado
-- Botões sempre clicáveis acima da navigation bar do sistema
+- Bars: linhas horizontais claras com pulsar leve (opacity loop 0.6↔1 em 1.2s).
+- Donut: círculo base + anel cinza + bloco central.
+- Area: gradiente placeholder + linha tracejada.
+- Heatmap: grid retângulos cinza claros (3 tons variando).
 
-**Aplicar em:** TransactionForm ✅, AccountForm, CategoryForm, BudgetForm, GoalForm
+## 8. Gestos Pan/Zoom (MVP)
 
-## DESENVOLVIMENTO ATUAL
+- Pinch para zoom no eixo X (escala máx 4x, min 1x).
+- Pan horizontal limitado às extremidades (clamp start/end).
+- Estratégia: manter série completa em memória; exibir janela [offset, offset+visibleCount].
+- Debounce 16ms atualização de tooltip durante pan para performance.
 
-### ✅ CONCLUÍDO (Passo 0-4)
+## 9. Export Como Imagem
+
+- Dependência: react-native-view-shot.
+- API util: exportChart(ref, { format: 'png', quality: 0.95 }).
+- UI: botão share em header de cada card (ícone share-external) → aciona share nativo.
+- Anotar metadata (título + período) em rodapé opcional (overlay antes do capture?).
+
+## 10. Drill-down Categorias (Donut)
+
+- Segmento "Outras" ou qualquer segmento → abre modal lista ordenada de subcategorias.
+- Filtro persistente para retornar ao donut com foco (highlight) no segmento origem.
+
+## 11. Checklist de PR (Resumo Mantido)
+
+1. Estados: loading / vazio / erro / sucesso presentes.
+2. Acessibilidade: labels, contraste, área toque ≥44dp.
+3. Animações ≤300ms, sem jank (use Reanimated quando possível).
+4. Sem novos warnings TS / ESLint.
+5. Operações de escrita em transaction.
+6. Re-render charts: memo + keys estáveis.
+7. Tooltip testado em telas pequenas e dark mode.
+8. Eventos emitidos para invalidação (quando aplicável).
+9. Documentar se adicionar dependência (view-shot, gesture libs etc.).
+10. Atualizar esta lista se escopo mudar.
+
+## 12. Próximos Commits Esperados
+
+- feat(charts): ChartTooltip + integração Trends
+- feat(charts): Skeletons específicos
+- feat(charts): Donut sweep animation + accessible tooltip
+- feat(charts): PanZoomWrapper + aplicação Trends/Area
+- feat(charts): export util + botão share
+- feat(charts): drill-down categorias
+
+## 13. Observações Rápidas de Design
+
+- Paleta atual (ver código) já expandida – manter consistência gradientes.
+- Evitar vibrate/haptics em eventos contínuos (pan); aplicar apenas em seleção final.
+- Manter layout shift zero: reservar altura dos gráficos mesmo em loading.
+
+Fim – Documento Focado.
 
 - Setup do projeto com Expo + TypeScript
 - Configuração do NativeWind
@@ -284,14 +292,36 @@ Quase concluído / Polimento: 4. Budget Dashboard/Alerts – Painel unificado j�
 
 Opcional antes ou depois (não bloqueia 1.0): 5. Otimização adicional cache budgets (map categoria→budgets ativos) 6. Metas (Goals) 7. Anexos (MVP)
 
-## PRIORIDADES IMEDIATAS (Atualizadas)
+## PRIORIDADES IMEDIATAS (Atualizadas - GRÁFICOS BONITOS)
 
-1. (Decisão) Escopo final de extras de Recorrências (transferências recorrentes, pausa granular) ou mover pós 1.0
-2. (Opcional) Badge global alertas orçamentos (implementado count +99; acessibilidade label extra opcional)
-3. (Opcional) Otimização extra cache budgets
-4. (Opcional) Média móvel 3m no dashboard
+### 🎯 FASE 1: Melhorar Componentes Existentes
 
-✅ Concluído recentemente: Painel consolidado de alertas de orçamento, Presets modal agrupado, fallback rename filtros cross-platform, Export CSV v2 completo, invalidação seletiva expandida (edição data/categoria)
+1. **DonutCategoryChart** - Adicionar tooltip central com valor, animações de entrada, gradientes
+2. **SvgTrendsChart** - Linha suave, gradientes em barras, animações de crescimento
+3. **MonthlyTrendsChart** - Transição para SVG, efeitos visuais modernos
+
+### 🎯 FASE 2: Novos Componentes Visuais
+
+1. **AreaChart** - Receitas vs despesas com preenchimento gradiente
+2. **ProgressRing** - Para alertas de orçamento com animação circular
+3. **Sparkline** - Mini gráficos nos cards de contas
+4. **HeatmapCalendar** - Atividade financeira diária
+
+### 🎯 FASE 3: Suite Completa de Relatórios
+
+1. **TreeMap** - Visualização hierárquica de categorias
+2. **WaterfallChart** - Fluxo de entrada/saída de caixa
+3. **MultiLineChart** - Comparativos temporais múltiplas métricas
+4. **InteractiveBarChart** - Drill-down nas categorias
+
+### 🎯 FASE 4: Animações & Micro-interações
+
+1. **react-native-reanimated** - Transições suaves
+2. **Skeleton loaders** - Estados de carregamento elegantes
+3. **Gesture handling** - Pan, zoom, tap nos gráficos
+4. **Haptic feedback** - Feedback tátil nas interações
+
+✅ Concluído recentemente: Painel consolidado de alertas de orçamento, Presets modal agrupado, fallback rename filtros cross-platform, Export CSV v2 completo, invalidação seletiva expandida (edição data/categoria), Recorrências CRUD + materialização, Backup & Restore JSON
 
 ## CHECKLIST DE SAÍDA 1.0 (Go/No-Go)
 
