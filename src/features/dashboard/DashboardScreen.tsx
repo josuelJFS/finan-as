@@ -176,7 +176,7 @@ export default function DashboardScreen() {
   return (
     <ScrollView
       className="flex-1 bg-gray-50 p-4 dark:bg-gray-900"
-      contentContainerStyle={{ paddingBottom: 40 }}
+      contentContainerStyle={{ paddingBottom: 0 }}
     >
       <Text className="mb-4 text-2xl font-bold text-gray-900 dark:text-white">Dashboard</Text>
       {/* Seletores de granularidade */}

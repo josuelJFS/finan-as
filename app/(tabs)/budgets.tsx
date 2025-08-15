@@ -1,5 +1,5 @@
 import { View, Text, ScrollView, TouchableOpacity, RefreshControl, Alert } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useState, useEffect, useCallback } from "react";
 import { useFocusEffect, useRouter } from "expo-router";
@@ -9,6 +9,7 @@ import type { BudgetProgress } from "../../src/lib/database/BudgetDAO";
 
 export default function BudgetsScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [budgetProgressList, setBudgetProgressList] = useState<BudgetProgress[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -96,16 +97,16 @@ export default function BudgetsScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView className="flex-1 bg-gray-50 dark:bg-gray-900">
+      <View className="flex-1 bg-gray-50 dark:bg-gray-900" style={{ paddingTop: insets.top }}>
         <View className="flex-1 items-center justify-center">
           <Text className="text-gray-600 dark:text-gray-400">Carregando...</Text>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50 dark:bg-gray-900">
+    <View className="flex-1 bg-white dark:bg-gray-900" style={{ paddingTop: insets.top }}>
       {/* Header */}
       <View className="border-b border-gray-200 bg-white px-4 py-4 dark:border-gray-700 dark:bg-gray-800">
         <View className="flex-row items-center justify-between">
@@ -128,6 +129,8 @@ export default function BudgetsScreen() {
 
       <ScrollView
         className="flex-1"
+        contentContainerStyle={{ paddingBottom: 54 + insets.bottom + 8 }}
+        showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
         {/* Painel Consolidado de Alertas */}
@@ -200,7 +203,7 @@ export default function BudgetsScreen() {
         )}
 
         {budgetProgressList.length > 0 ? (
-          <View className="px-4 pb-8 pt-4">
+          <View className="px-4 pb-4 pt-4">
             {budgetProgressList.map((progress, index) => {
               const { budget, spent, percentage, remaining } = progress;
 
@@ -338,6 +341,6 @@ export default function BudgetsScreen() {
           </View>
         )}
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }

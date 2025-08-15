@@ -1,5 +1,5 @@
 import { View, Text, TouchableOpacity, Switch, ScrollView, Alert } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { checkBiometricSupport, authenticateOnce } from "../../src/lib/biometric";
 import { useRouter } from "expo-router";
@@ -7,6 +7,7 @@ import { useAppStore } from "../../src/lib/store";
 
 export default function SettingsScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const {
     theme,
     setTheme,
@@ -47,13 +48,16 @@ export default function SettingsScreen() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50 dark:bg-gray-900">
+    <View className="flex-1 bg-gray-50 dark:bg-gray-900" style={{ paddingTop: insets.top }}>
       {/* Header */}
       <View className="border-b border-gray-200 bg-white px-4 py-4 dark:border-gray-700 dark:bg-gray-800">
         <Text className="text-2xl font-bold text-gray-900 dark:text-white">Configurações</Text>
       </View>
 
-      <ScrollView className="flex-1">
+      <ScrollView
+        className="flex-1"
+        contentContainerStyle={{ paddingBottom: 54 + insets.bottom + 8 }}
+      >
         {/* Aparência */}
         <View className="mx-4 mt-4 rounded-xl bg-white p-4 shadow-sm dark:bg-gray-800">
           <Text className="mb-4 text-lg font-semibold text-gray-900 dark:text-white">
@@ -258,6 +262,6 @@ export default function SettingsScreen() {
           </View>
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }

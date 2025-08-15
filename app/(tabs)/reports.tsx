@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from "react";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator } from "react-native";
 import { TransactionDAO } from "../../src/lib/database";
 import {
@@ -12,6 +12,7 @@ import {
 } from "../../src/components";
 
 export default function ReportsScreen() {
+  const insets = useSafeAreaInsets();
   const [granularity, setGranularity] = useState<"day" | "week" | "month" | "year">("month");
   const [range, setRange] = useState(6);
   const [trends, setTrends] = useState<any[]>([]);
@@ -83,8 +84,11 @@ export default function ReportsScreen() {
   const visible = useMemo(() => trends.slice(-range), [trends, range]);
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50 dark:bg-gray-900">
-      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 48 }}>
+    <View className="flex-1 bg-white dark:bg-gray-900" style={{ paddingTop: insets.top }}>
+      <ScrollView
+        contentContainerStyle={{ padding: 16, paddingBottom: 54 + insets.bottom + 24 }}
+        showsVerticalScrollIndicator={false}
+      >
         <Text className="mb-4 text-2xl font-bold text-gray-900 dark:text-white">Relatórios</Text>
         <View className="mb-2 flex-row rounded-md bg-white p-1 dark:bg-gray-800">
           {(["day", "week", "month", "year"] as const).map((g) => (
@@ -212,6 +216,6 @@ export default function ReportsScreen() {
           </View>
         )}
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }

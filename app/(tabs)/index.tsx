@@ -1,5 +1,5 @@
 import { View, Text, ScrollView, TouchableOpacity, RefreshControl } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useState } from "react";
 import { useRouter, useFocusEffect } from "expo-router";
@@ -55,6 +55,7 @@ function TrendLineSummary({ data, range }: { data: any[]; range: number }) {
 }
 
 export default function DashboardScreen() {
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [balanceSummary, setBalanceSummary] = useState<BalanceSummary | null>(null);
@@ -208,18 +209,20 @@ export default function DashboardScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView className="flex-1 bg-white dark:bg-gray-900">
+      <View className="flex-1 bg-white dark:bg-gray-900" style={{ paddingTop: insets.top }}>
         <View className="flex-1 items-center justify-center">
           <Text className="text-gray-600 dark:text-gray-400">Carregando...</Text>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50 dark:bg-gray-900">
+    <View className="flex-1 bg-white dark:bg-gray-900" style={{ paddingTop: insets.top }}>
       <ScrollView
         className="flex-1"
+        contentContainerStyle={{ paddingBottom: 54 + insets.bottom + 8 }}
+        showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
         {/* Header */}
@@ -383,7 +386,7 @@ export default function DashboardScreen() {
                 <View
                   key={account.id}
                   className={`mb-3 rounded-xl border border-gray-100 bg-white p-4 shadow-sm dark:border-gray-700/60 dark:bg-gray-800 ${
-                    idx === arr.length - 1 ? 'mb-0' : ''
+                    idx === arr.length - 1 ? "mb-0" : ""
                   }`}
                 >
                   <View className="flex-row items-center justify-between">
@@ -430,7 +433,7 @@ export default function DashboardScreen() {
         </View>
 
         {/* Ações Rápidas */}
-        <View className="mx-4 mb-6 mt-6">
+        <View className="mb-0 mt-6 px-4">
           <Text className="mb-4 text-lg font-semibold text-gray-900 dark:text-white">
             Ações Rápidas
           </Text>
@@ -464,7 +467,7 @@ export default function DashboardScreen() {
 
         {/* Alertas de Orçamento com Progress Rings */}
         {budgetAlerts.length > 0 && (
-          <View className="mx-4 mb-8">
+          <View className="mb-2 px-4">
             <Text className="mb-3 text-lg font-semibold text-gray-900 dark:text-white">
               Alertas de Orçamento
             </Text>
@@ -500,6 +503,6 @@ export default function DashboardScreen() {
           </View>
         )}
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }

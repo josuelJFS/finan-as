@@ -367,6 +367,44 @@ Sequência após concluir acima: Invalidação seletiva → Alertas de orçament
 - **Feedback Imediato** - qualquer operação assíncrona >150ms deve sinalizar progresso
 - **Estados Vazios Educativos** - sempre incluir mensagem + CTA para criar conteúdo
 
+## SOLUÇÃO PARA ÁREA CINZA ENTRE TABS E CONTEÚDO
+
+**PROBLEMA**: "Zinza entre o menubar" - área cinza flutuante entre tab bar e conteúdo scrollável onde o conteúdo desliza por baixo.
+
+**CAUSA**: SafeAreaView nas telas individuais criando espaço extra que conflita com o tab bar.
+
+**SOLUÇÃO APLICADA (Agosto 2025)**:
+
+1. **No \_layout.tsx das tabs**: Configurar tab bar com altura dinâmica incluindo safe area:
+
+```tsx
+tabBarStyle: {
+  backgroundColor: isDark ? "#1f2937" : "#ffffff",
+  borderTopWidth: 0,
+  height: 54 + insets.bottom,
+  paddingBottom: insets.bottom,
+}
+```
+
+2. **Nas telas individuais**: Substituir SafeAreaView por View com paddingTop manual:
+
+```tsx
+// ANTES (problema):
+<SafeAreaView className="flex-1 bg-white dark:bg-gray-900">
+  <ScrollView contentContainerStyle={{ paddingBottom: 8 }}>
+
+// DEPOIS (solução):
+<View className="flex-1 bg-white dark:bg-gray-900" style={{ paddingTop: insets.top }}>
+  <ScrollView contentContainerStyle={{ paddingBottom: 54 + insets.bottom + 8 }}>
+```
+
+3. **Padding do ScrollView**: Incluir altura da tab bar + safe area bottom + margem extra:
+   `paddingBottom: 54 + insets.bottom + 8`
+
+**ARQUIVOS AFETADOS**: app/(tabs)/\_layout.tsx, index.tsx, budgets.tsx, reports.tsx, settings.tsx, transactions.tsx
+
+**TESTE**: Verificar que não há mais área cinza flutuante e o conteúdo não desliza sob a tab bar.
+
 ## ESTRUTURA DE ARQUIVOS ATUAL
 
 ```
