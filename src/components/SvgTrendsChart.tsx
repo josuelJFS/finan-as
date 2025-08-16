@@ -107,27 +107,48 @@ export const SvgTrendsChart: React.FC<Props> = ({
 
   const totalWidth = w + 24;
   const { width: windowW } = useWindowDimensions();
-  // Shared values para cada barra (duas por período: income e expense)
-  const barHeightsIncome = recent.map(() => useSharedValue(0));
-  const barHeightsExpense = recent.map(() => useSharedValue(0));
+
+  // Shared values para cada barra - criados uma vez com tamanho fixo
+  const maxItems = 30; // máximo de períodos suportados
+  const barHeightsIncome = React.useMemo(
+    () => Array.from({ length: maxItems }, () => useSharedValue(0)),
+    []
+  );
+  const barHeightsExpense = React.useMemo(
+    () => Array.from({ length: maxItems }, () => useSharedValue(0)),
+    []
+  );
+
   const { show, hide } = useChartTooltip();
+
   useEffect(() => {
-    recent.forEach((d, i) => {
-      const incRatio = d.income / maxVal;
-      const expRatio = d.expenses / maxVal;
+    // Reset todos os valores primeiro
+    for (let i = 0; i < maxItems; i++) {
       barHeightsIncome[i].value = 0;
       barHeightsExpense[i].value = 0;
-      barHeightsIncome[i].value = withDelay(
-        40 * i,
-        withTiming(incRatio, { duration: 600, easing: Easing.out(Easing.cubic) })
-      );
-      barHeightsExpense[i].value = withDelay(
-        40 * i + 100,
-        withTiming(expRatio, { duration: 600, easing: Easing.out(Easing.cubic) })
-      );
+    }
+
+    // Animar apenas os itens necessários
+    recent.forEach((d, i) => {
+      if (i < maxItems) {
+        const incRatio = d.income / maxVal;
+        const expRatio = d.expenses / maxVal;
+        barHeightsIncome[i].value = withDelay(
+          40 * i,
+          withTiming(incRatio, { duration: 600, easing: Easing.out(Easing.cubic) })
+        );
+        barHeightsExpense[i].value = withDelay(
+          40 * i + 100,
+          withTiming(expRatio, { duration: 600, easing: Easing.out(Easing.cubic) })
+        );
+      }
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [recent.map((d) => `${d.period}:${d.income}:${d.expenses}`).join(","), maxVal]);
+  }, [
+    recent.map((d) => `${d.period}:${d.income}:${d.expenses}`).join(","),
+    maxVal,
+    barHeightsIncome,
+    barHeightsExpense,
+  ]);
 
   const AnimatedRect: any = Animated.createAnimatedComponent(Rect as any);
 

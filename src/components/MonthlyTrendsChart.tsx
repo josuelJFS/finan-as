@@ -104,24 +104,43 @@ export const MonthlyTrendsChart: React.FC<Props> = ({
   const y = (v: number) =>
     chartHeight - paddingBottom - (v / maxValue) * (chartHeight - paddingBottom - 8);
 
-  // Animated shared values
-  const incomesSV = recent.map(() => useSharedValue(0));
-  const expensesSV = recent.map(() => useSharedValue(0));
+  // Animated shared values - criados uma vez com tamanho fixo
+  const maxItems = 30; // máximo de períodos suportados
+  const incomesSV = React.useMemo(
+    () => Array.from({ length: maxItems }, () => useSharedValue(0)),
+    []
+  );
+  const expensesSV = React.useMemo(
+    () => Array.from({ length: maxItems }, () => useSharedValue(0)),
+    []
+  );
+
   useEffect(() => {
-    recent.forEach((d, i) => {
+    // Reset todos os valores primeiro
+    for (let i = 0; i < maxItems; i++) {
       incomesSV[i].value = 0;
       expensesSV[i].value = 0;
-      incomesSV[i].value = withDelay(
-        40 * i,
-        withTiming(d.income / maxValue, { duration: 600, easing: Easing.out(Easing.cubic) })
-      );
-      expensesSV[i].value = withDelay(
-        40 * i + 120,
-        withTiming(d.expenses / maxValue, { duration: 600, easing: Easing.out(Easing.cubic) })
-      );
+    }
+
+    // Animar apenas os itens necessários
+    recent.forEach((d, i) => {
+      if (i < maxItems) {
+        incomesSV[i].value = withDelay(
+          40 * i,
+          withTiming(d.income / maxValue, { duration: 600, easing: Easing.out(Easing.cubic) })
+        );
+        expensesSV[i].value = withDelay(
+          40 * i + 120,
+          withTiming(d.expenses / maxValue, { duration: 600, easing: Easing.out(Easing.cubic) })
+        );
+      }
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [recent.map((r) => `${r.period}:${r.income}:${r.expenses}`).join(","), maxValue]);
+  }, [
+    recent.map((r) => `${r.period}:${r.income}:${r.expenses}`).join(","),
+    maxValue,
+    incomesSV,
+    expensesSV,
+  ]);
   const AnimatedRect: any = Animated.createAnimatedComponent(Rect as any);
 
   const formatLabel = (period: string) => {

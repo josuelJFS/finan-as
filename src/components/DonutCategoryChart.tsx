@@ -128,20 +128,28 @@ export const DonutCategoryChart: React.FC<Props> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [JSON.stringify(top), total, center, radius]);
 
-  // Shared values para comprimento dos arcos
-  const animatedLengths = segments.map(() => useSharedValue(0));
+  // Shared values para comprimento dos arcos (criados com quantidade fixa para evitar hooks condicionais)
+  const animatedLengths = useMemo(() => {
+    return Array.from({ length: maxItems + 1 }, () => useSharedValue(0)); // +1 para "Outras"
+  }, [maxItems]);
   const totalCircumference = 2 * Math.PI * radius;
   useEffect(() => {
-    segments.forEach((seg, i) => {
-      const pct = seg.pct / 100;
+    // Reset todos os valores primeiro
+    for (let i = 0; i < animatedLengths.length; i++) {
       animatedLengths[i].value = 0;
-      animatedLengths[i].value = withDelay(
-        40 * i,
-        withTiming(pct, { duration: 650, easing: Easing.out(Easing.cubic) })
-      );
+    }
+
+    // Animar apenas os segmentos necessários
+    segments.forEach((seg, i) => {
+      if (i < animatedLengths.length) {
+        const pct = seg.pct / 100;
+        animatedLengths[i].value = withDelay(
+          40 * i,
+          withTiming(pct, { duration: 650, easing: Easing.out(Easing.cubic) })
+        );
+      }
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [segments.map((s) => s.pct).join(","), radius]);
+  }, [segments.map((s) => s.pct).join(","), radius, animatedLengths]);
 
   const AnimatedPath: any = Animated.createAnimatedComponent(Path as any);
 
