@@ -68,7 +68,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: "Dashboard",
+          title: "Home",
           headerShown: false,
           tabBarIcon: ({ color }) => <Ionicons name="home" size={24} color={color} />,
         }}
@@ -105,52 +105,45 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="budgets"
-        options={{
-          title: "Orçamentos",
-          headerShown: false,
-          tabBarIcon: ({ color }) => (
-            <View style={{ width: 28, height: 24, alignItems: "center", justifyContent: "center" }}>
-              <Ionicons name="pie-chart" size={22} color={color} />
-              {budgetAlerts > 0 && (
-                <View
-                  style={{
-                    position: "absolute",
-                    top: -2,
-                    right: -2,
-                    minWidth: 16,
-                    height: 16,
-                    borderRadius: 8,
-                    backgroundColor: "#ef4444",
-                    paddingHorizontal: 4,
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                  accessibilityLabel={`${budgetAlerts} orçamentos em alerta`}
-                >
-                  <Text style={{ color: "white", fontSize: 10, fontWeight: "600" }}>
-                    {budgetAlerts > 99 ? "99+" : budgetAlerts}
-                  </Text>
-                </View>
-              )}
-            </View>
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="reports"
-        options={{
-          title: "Relatórios",
-          headerShown: false,
-          tabBarIcon: ({ color }) => <Ionicons name="stats-chart" size={22} color={color} />,
-        }}
-      />
-      <Tabs.Screen
         name="settings"
         options={{
           title: "Configurações",
           headerShown: false,
           tabBarIcon: ({ color }) => <Ionicons name="settings" size={24} color={color} />,
+        }}
+      />
+
+      {/* Tabs ocultas - acessíveis via navegação */}
+      <Tabs.Screen
+        name="cashflow"
+        options={{
+          href: null, // Remove da tab bar
+          title: "Fluxo de Caixa",
+          headerShown: false,
+        }}
+      />
+      <Tabs.Screen
+        name="fixed-expenses"
+        options={{
+          href: null, // Remove da tab bar
+          title: "Gastos Fixos",
+          headerShown: false,
+        }}
+      />
+      <Tabs.Screen
+        name="budgets"
+        options={{
+          href: null, // Remove da tab bar
+          title: "Orçamentos",
+          headerShown: false,
+        }}
+      />
+      <Tabs.Screen
+        name="reports"
+        options={{
+          href: null, // Remove da tab bar
+          title: "Relatórios",
+          headerShown: false,
         }}
       />
     </Tabs>

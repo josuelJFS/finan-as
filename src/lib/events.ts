@@ -6,6 +6,11 @@ export type AppEventMap = {
   "accounts:balancesChanged": void;
   // reason: pequena descrição da origem (ex: "transaction change", "budget updated")
   "budgets:progressInvalidated": { reason?: string } | void;
+  // Fixed expenses events
+  "fixedExpenses:created": { id: string };
+  "fixedExpenses:updated": { id: string };
+  "fixedExpenses:deleted": { id: string };
+  "fixedExpenses:paymentToggled": { fixedExpenseId: string; year: number; month: number };
 };
 
 type Listener<T> = (payload: T) => void;

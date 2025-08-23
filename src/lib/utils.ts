@@ -33,6 +33,9 @@ export const parseCurrency = (value: string): number => {
   return isNaN(parsed) ? 0 : parsed;
 };
 
+// Alias para compatibilidade
+export const parseAmount = parseCurrency;
+
 // Formatação de data
 export const formatDate = (date: string | Date, format = "DD/MM/YYYY"): string => {
   const d = typeof date === "string" ? new Date(date) : date;

@@ -46,12 +46,31 @@ export default function AccountsScreen() {
     setRefreshing(false);
   }, []);
 
+  const archiveAccount = async (account: Account) => {
+    try {
+      await accountDAO.update(account.id, { is_archived: true });
+      loadAccounts();
+      Alert.alert(
+        "Conta Arquivada",
+        `A conta "${account.name}" foi arquivada com sucesso.\n\nEla não aparecerá mais na lista principal, mas os dados serão mantidos.`
+      );
+    } catch (error) {
+      console.error("Erro ao arquivar conta:", error);
+      Alert.alert("Erro", "Não foi possível arquivar a conta. Tente novamente.");
+    }
+  };
+
   const handleDeleteAccount = async (account: Account) => {
     Alert.alert(
       "Excluir Conta",
-      `Tem certeza que deseja excluir a conta "${account.name}"?\n\nEsta ação não pode ser desfeita.`,
+      `Tem certeza que deseja EXCLUIR permanentemente a conta "${account.name}"?\n\n⚠️ Esta ação é irreversível e só é possível se a conta não possuir transações.\n\n💡 Dica: Use "Arquivar" para ocultar a conta sem perder os dados.`,
       [
         { text: "Cancelar", style: "cancel" },
+        {
+          text: "Arquivar",
+          style: "default",
+          onPress: () => archiveAccount(account),
+        },
         {
           text: "Excluir",
           style: "destructive",
@@ -62,7 +81,25 @@ export default function AccountsScreen() {
               Alert.alert("Sucesso", "Conta excluída com sucesso");
             } catch (error) {
               console.error("Erro ao excluir conta:", error);
-              Alert.alert("Erro", "Não foi possível excluir a conta");
+
+              // Verificar se é erro de transações associadas
+              const errorMessage = String(error);
+              if (errorMessage.includes("transações associadas")) {
+                Alert.alert(
+                  "Não é possível excluir",
+                  `A conta "${account.name}" possui transações associadas e não pode ser excluída.\n\nPara excluir esta conta, primeiro exclua todas as transações relacionadas a ela ou use a opção "Arquivar" para ocultá-la da lista principal.`,
+                  [
+                    { text: "Entendi", style: "default" },
+                    {
+                      text: "Arquivar Conta",
+                      style: "default",
+                      onPress: () => archiveAccount(account),
+                    },
+                  ]
+                );
+              } else {
+                Alert.alert("Erro", "Não foi possível excluir a conta. Tente novamente.");
+              }
             }
           },
         },

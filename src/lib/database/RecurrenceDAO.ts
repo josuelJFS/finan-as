@@ -274,18 +274,36 @@ export function computeNextOccurrence(r: Recurrence, fromDateISO?: string): stri
 }
 
 // ===== Engine de materialização =====
+let _materializing = false;
 export async function materializeDueRecurrences(): Promise<number> {
-  const recurrenceDAO = RecurrenceDAO.getInstance();
-  const transactionDAO = TransactionDAO.getInstance();
-  const nowISO = new Date().toISOString().substring(0, 10); // usar somente data
-  const due = await recurrenceDAO.findDue(nowISO);
-  let created = 0;
+  if (_materializing) return 0;
+  _materializing = true;
 
-  for (const rec of due) {
-    // Loop para materializar múltiplas ocorrências atrasadas (ex: app ficou dias fechado)
-    let safety = 0;
-    let nextDate = rec.next_occurrence;
-    while (nextDate <= nowISO && safety < 100) {
+  try {
+    const recurrenceDAO = RecurrenceDAO.getInstance();
+    const transactionDAO = TransactionDAO.getInstance();
+    const nowISO = new Date().toISOString().substring(0, 10); // usar somente data
+    const due = await recurrenceDAO.findDue(nowISO);
+    let created = 0;
+
+    for (const rec of due) {
+      // Verificar se já existe transação para esta recorrência na data de hoje
+      const existingTransaction = await transactionDAO.findByRecurrenceAndDate(
+        rec.id,
+        rec.next_occurrence
+      );
+      if (existingTransaction) {
+        console.log(
+          `[Recurrences] Transação já existe para ${rec.name} em ${rec.next_occurrence}, pulando...`
+        );
+        // Apenas avançar a próxima ocorrência sem criar duplicata
+        const newNext = computeNextOccurrence(rec, rec.next_occurrence);
+        if (newNext && newNext !== rec.next_occurrence) {
+          await recurrenceDAO.updateNextOccurrence(rec.id, newNext);
+        }
+        continue;
+      }
+
       // Criar transação baseada na recorrência
       const createdId = await transactionDAO.create({
         type: rec.type,
@@ -295,30 +313,27 @@ export async function materializeDueRecurrences(): Promise<number> {
         amount: rec.amount,
         description: rec.description,
         notes: rec.notes,
-        occurred_at: nextDate,
+        occurred_at: rec.next_occurrence,
         tags: rec.tags,
         attachment_path: undefined,
         recurrence_id: rec.id,
         is_pending: false,
       });
-      // Futuro: poderíamos armazenar auditoria da ocorrência
-      created++;
-      safety++;
-      // Calcular próxima
-      const newNext = computeNextOccurrence(rec, nextDate);
-      if (!newNext || newNext === nextDate) break; // evita loop infinito
-      nextDate = newNext;
-      // Atualizar estrutura local para manter cálculo em cascata
-      (rec as any).next_occurrence = newNext;
-    }
-    if (rec.next_occurrence !== nextDate) {
-      await recurrenceDAO.updateNextOccurrence(rec.id, nextDate);
-    }
-  }
 
-  if (created > 0 && __DEV__) {
-    // Eventos já disparados pelo TransactionDAO
-    console.log(`[Recurrences] Materializadas ${created} transações recorrentes.`);
+      // Calcular e atualizar próxima ocorrência imediatamente
+      const newNext = computeNextOccurrence(rec, rec.next_occurrence);
+      if (newNext && newNext !== rec.next_occurrence) {
+        await recurrenceDAO.updateNextOccurrence(rec.id, newNext);
+      }
+
+      created++;
+    }
+
+    if (created > 0 && __DEV__) {
+      console.log(`[Recurrences] Materializadas ${created} transações recorrentes.`);
+    }
+    return created;
+  } finally {
+    _materializing = false;
   }
-  return created;
 }

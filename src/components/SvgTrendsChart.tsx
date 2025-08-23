@@ -19,7 +19,7 @@ import Svg, {
   Filter,
 } from "react-native-svg";
 import type { MonthlyTrend } from "../lib/database/TransactionDAO";
-import { useChartTooltip } from "./charts/common/ChartTooltip";
+// Temporariamente removido: import { useChartTooltip } from "./charts/common/ChartTooltip";
 
 interface Props {
   data: MonthlyTrend[];
@@ -119,7 +119,7 @@ export const SvgTrendsChart: React.FC<Props> = ({
     []
   );
 
-  const { show, hide } = useChartTooltip();
+  // Temporariamente removido tooltip: const { show, hide } = useChartTooltip();
 
   useEffect(() => {
     // Reset todos os valores primeiro
@@ -221,42 +221,7 @@ export const SvgTrendsChart: React.FC<Props> = ({
                 width={barW * 2 + 14}
                 height={h - chartPadding}
                 fill="transparent"
-                onPress={(evt) => {
-                  const { pageX, pageY } = evt.nativeEvent;
-                  show({
-                    x: pageX + 4,
-                    y: pageY - 60,
-                    title: formatLabel(d.period),
-                    accentColor: d.balance >= 0 ? "#16a34a" : "#dc2626",
-                    lines: [
-                      {
-                        label: "Entradas",
-                        value: d.income.toLocaleString("pt-BR", {
-                          style: "currency",
-                          currency: "BRL",
-                        }),
-                        color: "#16a34a",
-                      },
-                      {
-                        label: "Saídas",
-                        value: d.expenses.toLocaleString("pt-BR", {
-                          style: "currency",
-                          currency: "BRL",
-                        }),
-                        color: "#dc2626",
-                      },
-                      {
-                        label: "Saldo",
-                        value: d.balance.toLocaleString("pt-BR", {
-                          style: "currency",
-                          currency: "BRL",
-                        }),
-                        color: d.balance >= 0 ? "#16a34a" : "#dc2626",
-                      },
-                    ],
-                  });
-                }}
-                onPressOut={() => hide()}
+                // Temporariamente removido tooltip interactions
               />
               <SvgText
                 x={x(i) + barW}

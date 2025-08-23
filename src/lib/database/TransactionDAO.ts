@@ -360,13 +360,17 @@ export class TransactionDAO {
 
     const rows = await db.getAllAsync<any>(`
       SELECT 
-        strftime('${fmt}', occurred_at) as period,
-        SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END) as income,
-        SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END) as expenses
-      FROM transactions 
-      WHERE occurred_at >= date('now', '-${safePeriods} ${unit}')
-        AND is_pending = 0
-      GROUP BY strftime('${fmt}', occurred_at)
+        strftime('${fmt}', t.occurred_at) as period,
+        SUM(CASE WHEN t.type = 'income' THEN t.amount ELSE 0 END) as income,
+        SUM(CASE WHEN t.type = 'expense' THEN t.amount ELSE 0 END) as expenses
+      FROM transactions t
+      LEFT JOIN accounts a ON t.account_id = a.id
+      LEFT JOIN accounts a_to ON t.destination_account_id = a_to.id
+      WHERE t.occurred_at >= date('now', '-${safePeriods} ${unit}')
+        AND t.is_pending = 0
+        AND (a.type != 'investment' OR a.type IS NULL)
+        AND (a_to.type != 'investment' OR a_to.type IS NULL OR t.type != 'transfer')
+      GROUP BY strftime('${fmt}', t.occurred_at)
       ORDER BY period ASC
     `);
     const map = new Map<string, { income: number; expenses: number }>();
@@ -437,7 +441,9 @@ export class TransactionDAO {
         COUNT(t.id) as transaction_count
       FROM transactions t
       JOIN categories c ON t.category_id = c.id
+      LEFT JOIN accounts a ON t.account_id = a.id
       WHERE t.is_pending = 0
+        AND (a.type != 'investment' OR a.type IS NULL)
     `;
 
     const params: any[] = [];
@@ -698,6 +704,15 @@ export class TransactionDAO {
       created_at: row.created_at,
       updated_at: row.updated_at,
     };
+  }
+
+  async findByRecurrenceAndDate(recurrenceId: string, date: string): Promise<Transaction | null> {
+    const db = await this.getDb();
+    const row = await db.getFirstAsync<any>(
+      "SELECT * FROM transactions WHERE recurrence_id = ? AND occurred_at = ?",
+      [recurrenceId, date]
+    );
+    return row ? this.mapRowToTransaction(row) : null;
   }
 }
 

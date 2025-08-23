@@ -1,7 +1,8 @@
 import React, { useEffect, useState, useMemo } from "react";
 import { View, Text, TextInput, ScrollView, TouchableOpacity } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { RecurrenceDAO } from "../../lib/database";
+import { RecurrenceDAO, materializeDueRecurrences } from "../../lib/database";
+import { Events } from "../../lib/events";
 import type { RecurrenceFrequency, TransactionType } from "../../types/entities";
 import { AccountSelector, CategorySelector, MoneyInput, DatePicker } from "../../components";
 import { useRouter, useLocalSearchParams } from "expo-router";
@@ -113,6 +114,8 @@ export default function RecurrenceFormScreen() {
             frequency === "weekly" ? (weekDays.length ? weekDays : undefined) : undefined,
         });
       }
+
+      // Simplesmente volta e deixa a Home materializar quando necessário
       router.back();
     } catch (e) {
       console.warn(e);

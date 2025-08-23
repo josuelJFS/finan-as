@@ -141,6 +141,12 @@ const seedAccounts = async (db: SQLite.SQLiteDatabase) => {
     INSERT INTO accounts (name, type, initial_balance, current_balance, icon, color)
     VALUES ('Conta Corrente', 'checking', 0, 0, 'card', '#3b82f6')
   `);
+
+  // Conta de investimento exemplo
+  await db.runAsync(`
+    INSERT INTO accounts (name, type, initial_balance, current_balance, icon, color)
+    VALUES ('Investimentos', 'investment', 5900, 5900, 'trending-up', '#10b981')
+  `);
 };
 
 const seedBudgets = async (db: SQLite.SQLiteDatabase) => {

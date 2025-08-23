@@ -1,7 +1,7 @@
 import * as SQLite from "expo-sqlite";
 
 // Versão atual do banco de dados
-export const DB_VERSION = 3;
+export const DB_VERSION = 5;
 export const DB_NAME = "appfinanca.db";
 
 let db: SQLite.SQLiteDatabase | null = null;
@@ -60,6 +60,14 @@ const runMigrations = async (database: SQLite.SQLiteDatabase) => {
 
   if (currentVersion < 3) {
     await migration_003_budget_progress_cache(database);
+  }
+
+  if (currentVersion < 4) {
+    await migration_004_fixed_expenses(database);
+  }
+
+  if (currentVersion < 5) {
+    await migration_005_add_investment_account(database);
   }
 
   // Atualizar versão do banco
@@ -306,7 +314,8 @@ async function runWithRetry(
         await db.execAsync(statement);
       }
       if (__DEV__)
-        console.log(`[DB][migration] OK '${statement.slice(0, 60)}' (attempt ${attempt + 1})`);
+        if (__DEV__ && attempt > 0)
+          console.log(`[DB][migration] OK '${statement.slice(0, 60)}' (attempt ${attempt + 1})`);
       return true; // sucesso
     } catch (err: any) {
       // Tentar rollback se transação aberta
@@ -401,3 +410,58 @@ async function migration_003_budget_progress_cache(db: SQLite.SQLiteDatabase) {
   `);
   if (__DEV__) console.log("Migration 003 completed");
 }
+
+// Migração 004 - Despesas fixas
+async function migration_004_fixed_expenses(db: SQLite.SQLiteDatabase) {
+  if (__DEV__) console.log("Running migration 004: Fixed expenses");
+  await db.execAsync(`
+    CREATE TABLE IF NOT EXISTS fixed_expenses (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      amount REAL NOT NULL,
+      category TEXT NOT NULL,
+      due_day INTEGER NOT NULL CHECK (due_day >= 1 AND due_day <= 31),
+      is_active INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    
+    CREATE TABLE IF NOT EXISTS fixed_expense_payments (
+      id TEXT PRIMARY KEY,
+      fixed_expense_id TEXT NOT NULL,
+      year INTEGER NOT NULL,
+      month INTEGER NOT NULL,
+      is_paid INTEGER NOT NULL DEFAULT 0,
+      paid_at TEXT,
+      amount REAL NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      FOREIGN KEY (fixed_expense_id) REFERENCES fixed_expenses(id) ON DELETE CASCADE,
+      UNIQUE (fixed_expense_id, year, month)
+    );
+    
+    CREATE INDEX IF NOT EXISTS idx_fixed_expenses_active ON fixed_expenses (is_active);
+    CREATE INDEX IF NOT EXISTS idx_fixed_expense_payments_period ON fixed_expense_payments (year, month);
+    CREATE INDEX IF NOT EXISTS idx_fixed_expense_payments_status ON fixed_expense_payments (is_paid);
+  `);
+  if (__DEV__) console.log("Migration 004 completed");
+}
+
+// Migration 005 - Adicionar conta de investimento de exemplo
+const migration_005_add_investment_account = async (db: SQLite.SQLiteDatabase) => {
+  if (__DEV__) console.log("Running migration 005: Add investment account");
+
+  // Verificar se já existe uma conta de investimento
+  const existingInvestment = await db.getFirstAsync<{ count: number }>(
+    `SELECT COUNT(*) as count FROM accounts WHERE type = 'investment'`
+  );
+
+  if (existingInvestment && existingInvestment.count === 0) {
+    // Só criar se não existir nenhuma conta de investimento
+    await db.runAsync(`
+      INSERT INTO accounts (name, type, initial_balance, current_balance, icon, color)
+      VALUES ('Investimentos', 'investment', 5900, 5900, 'trending-up', '#10b981')
+    `);
+  }
+
+  if (__DEV__) console.log("Migration 005 completed");
+};
