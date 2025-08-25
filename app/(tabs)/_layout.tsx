@@ -104,6 +104,7 @@ export default function TabLayout() {
           ),
         }}
       />
+      {/* Tab Recorrências removida do menubar, agora só na Home (nenhum Tabs.Screen para recorrências aqui) */}
       <Tabs.Screen
         name="settings"
         options={{

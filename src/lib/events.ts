@@ -11,6 +11,10 @@ export type AppEventMap = {
   "fixedExpenses:updated": { id: string };
   "fixedExpenses:deleted": { id: string };
   "fixedExpenses:paymentToggled": { fixedExpenseId: string; year: number; month: number };
+  // Planned expenses events
+  "plannedExpenses:created": { id: string };
+  "plannedExpenses:updated": { id: string };
+  "plannedExpenses:deleted": { id: string };
 };
 
 type Listener<T> = (payload: T) => void;

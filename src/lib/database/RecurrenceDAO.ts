@@ -20,6 +20,7 @@ export interface CreateRecurrenceInput {
   end_date?: string; // YYYY-MM-DD
   is_active?: boolean;
   tags?: string[];
+  is_fixed?: boolean; // true = recorrência sem data de término
 }
 
 export class RecurrenceDAO {
@@ -203,6 +204,7 @@ export class RecurrenceDAO {
       next_occurrence: row.next_occurrence,
       is_active: row.is_active === 1,
       tags: row.tags ? JSON.parse(row.tags) : undefined,
+      is_fixed: row.is_fixed === 1 || row.is_fixed === true, // compatível com boolean/integer
       created_at: row.created_at,
       updated_at: row.updated_at,
     };

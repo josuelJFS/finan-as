@@ -14,10 +14,9 @@ import { useRouter, useFocusEffect } from "expo-router";
 import { AccountDAO, TransactionDAO, materializeDueRecurrences } from "../../src/lib/database";
 import type { CategorySummary } from "../../src/lib/database/TransactionDAO";
 import { FixedExpenseDAO } from "../../src/lib/database/FixedExpenseDAO";
-import { BudgetDAO } from "../../src/lib/database/BudgetDAO";
 import { formatCurrency } from "../../src/lib/utils";
 import { Events } from "../../src/lib/events";
-import type { Account, Transaction } from "../../src/types/entities";
+import type { Account } from "../../src/types/entities";
 import Svg, { Circle, Path, Defs, LinearGradient, Stop } from "react-native-svg";
 
 interface HomeData {
@@ -39,13 +38,6 @@ interface HomeData {
     paid: number;
     pending: number;
   };
-  quickBudgets: Array<{
-    categoryName: string;
-    budgetAmount: number;
-    spentAmount: number;
-    percentage: number;
-    status: "ok" | "warning" | "exceeded";
-  }>;
   coverageSuggestion?: {
     needed: number; // Valor necessário para cobrir déficit
     availableFromInvestments: number; // Disponível nas contas de investimento
@@ -211,7 +203,6 @@ export default function HomeScreen() {
       const accountDAO = AccountDAO.getInstance();
       const transactionDAO = TransactionDAO.getInstance();
       const fixedExpenseDAO = FixedExpenseDAO.getInstance();
-      const budgetDAO = BudgetDAO.getInstance();
 
       // Buscar dados em paralelo
       const [accounts, trends, fixedStats] = await Promise.all([
@@ -220,15 +211,7 @@ export default function HomeScreen() {
         fixedExpenseDAO.getPaymentStats(new Date().getFullYear(), new Date().getMonth() + 1),
       ]);
 
-      // Separar contas por tipo ANTES de calcular receitas/despesas mensais
-      const primaryAccounts = accounts.filter(
-        (acc) => acc.type !== "investment" && !acc.is_archived
-      );
-      const investmentAccounts = accounts.filter(
-        (acc) => acc.type === "investment" && !acc.is_archived
-      );
-
-      // Buscar receitas e despesas APENAS das contas principais (não investimento) do mês atual
+      // Buscar gastos por categoria do mês atual
       const now = new Date();
       const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
         .toISOString()
@@ -237,34 +220,6 @@ export default function HomeScreen() {
         .toISOString()
         .split("T")[0];
 
-      // IDs das contas principais
-      const primaryAccountIds = primaryAccounts.map((acc) => acc.id);
-
-      // Calcular receitas e despesas apenas das contas principais usando filtros
-      let monthlyIncome = 0;
-      let monthlyExpenses = 0;
-
-      if (primaryAccountIds.length > 0) {
-        // Buscar todas as transações do mês das contas principais
-        const monthlyTransactions = await transactionDAO.findAll({
-          account_ids: primaryAccountIds,
-          date_from: startOfMonth,
-          date_to: endOfMonth,
-          is_pending: false,
-        });
-
-        // Calcular receitas e despesas
-        monthlyTransactions.forEach((transaction: Transaction) => {
-          if (transaction.type === "income") {
-            monthlyIncome += transaction.amount;
-          } else if (transaction.type === "expense") {
-            monthlyExpenses += transaction.amount;
-          }
-          // Ignorar transferências (type === 'transfer') para não duplicar valores
-        });
-      }
-
-      // Buscar gastos por categoria do mês atual (mantém lógica original)
       const categorySummary = await transactionDAO.getCategorySummary(
         startOfMonth,
         endOfMonth,
@@ -272,8 +227,6 @@ export default function HomeScreen() {
       );
 
       if (__DEV__) {
-        console.log(`[Home] Receitas mensais (contas principais): ${monthlyIncome}`);
-        console.log(`[Home] Despesas mensais (contas principais): ${monthlyExpenses}`);
         console.log(`[Home] Buscando categorias de ${startOfMonth} até ${endOfMonth}`);
         console.log(`[Home] Categorias encontradas: ${categorySummary.length}`);
         categorySummary.forEach((cat, index) => {
@@ -299,6 +252,14 @@ export default function HomeScreen() {
         // Dados padrão quando não há transações
         processedCategories = [{ name: "Sem dados", amount: 0, color: "#e5e7eb", percentage: 100 }];
       }
+
+      // Separar contas por tipo
+      const primaryAccounts = accounts.filter(
+        (acc) => acc.type !== "investment" && !acc.is_archived
+      );
+      const investmentAccounts = accounts.filter(
+        (acc) => acc.type === "investment" && !acc.is_archived
+      );
 
       // Calcular saldos separados
       const primaryBalance = primaryAccounts.reduce(
@@ -326,48 +287,16 @@ export default function HomeScreen() {
         };
       }
 
-      // Calcular saldo do mês e orçamento restante (baseado APENAS nas contas principais)
+      // Dados do mês atual
+      const currentMonth = trends[0];
+      const monthlyIncome = currentMonth?.income || 0;
+      const monthlyExpenses = currentMonth?.expenses || 0;
+
+      // Calcular saldo do mês e orçamento restante
       const monthlyBalance = monthlyIncome - monthlyExpenses;
       const remainingBudget = monthlyIncome - monthlyExpenses - (fixedStats.pending || 0);
 
-      // Buscar orçamentos do mês atual para o card rápido
-      const budgets = await budgetDAO.getCurrentActiveBudgets();
-
-      if (__DEV__) {
-        console.log("[Home] Orçamentos encontrados:", budgets.length);
-        budgets.forEach((budget, index) => {
-          console.log(`[Home] Orçamento ${index + 1}:`, {
-            category_name: (budget.budget as any)?.category_name,
-            amount: budget.budget?.amount,
-            spent: budget.spent,
-            percentage: budget.percentage,
-          });
-        });
-      }
-
-      // Processar top 4 orçamentos para o card rápido
-      const quickBudgets = budgets.slice(0, 4).map((budgetProgress: any) => {
-        const budget = budgetProgress.budget;
-        const spent = budgetProgress.spent || 0;
-        const amount = budget?.amount || 0;
-        const percentage = amount > 0 ? (spent / amount) * 100 : 0;
-
-        let status: "ok" | "warning" | "exceeded" = "ok";
-
-        if (percentage > 100) {
-          status = "exceeded";
-        } else if (percentage > 80) {
-          status = "warning";
-        }
-
-        return {
-          categoryName: (budget as any)?.category_name || budget?.name || "Categoria",
-          budgetAmount: amount,
-          spentAmount: spent,
-          percentage: Math.min(percentage, 100),
-          status,
-        };
-      }); // Gerar dados para gráficos (últimos 5 meses) - mantém lógica original para histórico
+      // Gerar dados para gráficos (últimos 5 meses)
       const incomeChart = trends
         .slice(0, 5)
         .reverse()
@@ -396,7 +325,6 @@ export default function HomeScreen() {
           paid: fixedStats.paid,
           pending: fixedStats.pending,
         },
-        quickBudgets,
         coverageSuggestion,
       });
     } catch (error) {
@@ -419,7 +347,6 @@ export default function HomeScreen() {
         expenseChart: [],
         categoryExpenses: [{ name: "Sem dados", amount: 0, color: "#e5e7eb", percentage: 100 }],
         fixedExpensesStatus: { total: 0, paid: 0, pending: 0 },
-        quickBudgets: [],
       });
     } finally {
       setLoading(false);
@@ -482,7 +409,11 @@ export default function HomeScreen() {
     // Rotas que estão dentro de (tabs)
     const tabRoutes = ["budgets", "reports", "fixed-expenses", "cashflow"];
 
-    if (tabRoutes.includes(screen)) {
+    if (screen === "recurrences") {
+      router.push("/recurrences");
+    } else if (screen === "recurrence-projection") {
+      router.push("/recurrence-projection");
+    } else if (tabRoutes.includes(screen)) {
       router.push(`/(tabs)/${screen}` as any);
     } else {
       // Rotas que estão fora de (tabs)
@@ -526,14 +457,7 @@ export default function HomeScreen() {
       color: "#8b5cf6",
       badge: null,
     },
-    {
-      id: "recurrences",
-      title: "Recorrências",
-      subtitle: "Salários e gastos fixos automáticos",
-      icon: "repeat",
-      color: "#ec4899",
-      badge: null,
-    },
+    // ...
     {
       id: "fixed-expenses",
       title: "Gastos Fixos",
@@ -559,6 +483,22 @@ export default function HomeScreen() {
       subtitle: "Análises e gráficos",
       icon: "bar-chart",
       color: "#84cc16",
+      badge: null,
+    },
+    {
+      id: "recurrence-projection",
+      title: "Projeção Recorrente",
+      subtitle: "Veja as próximas faturas e meses comprometidos",
+      icon: "calendar-today",
+      color: "#6366f1",
+      badge: null,
+    },
+    {
+      id: "recurrences",
+      title: "Recorrências",
+      subtitle: "Salários e gastos fixos automáticos",
+      icon: "repeat",
+      color: "#ec4899",
       badge: null,
     },
   ];
@@ -813,86 +753,6 @@ export default function HomeScreen() {
               </View>
             </View>
           </View>
-
-          {/* Card de Orçamentos Rápidos */}
-          {data?.quickBudgets && data.quickBudgets.length > 0 && (
-            <View
-              className="mb-6 rounded-3xl bg-white p-6 dark:bg-gray-800"
-              style={{
-                shadowColor: "#000",
-                shadowOffset: { width: 0, height: 4 },
-                shadowOpacity: 0.1,
-                shadowRadius: 12,
-                elevation: 8,
-              }}
-            >
-              <View className="mb-4 flex-row items-center justify-between">
-                <Text className="text-lg font-bold text-gray-900 dark:text-white">
-                  Orçamentos do Mês
-                </Text>
-                <TouchableOpacity
-                  onPress={() => navigateToFeature("budgets")}
-                  className="rounded-full bg-gray-100 px-3 py-1 dark:bg-gray-700"
-                >
-                  <Text className="text-xs font-medium text-gray-600 dark:text-gray-300">
-                    Ver todos
-                  </Text>
-                </TouchableOpacity>
-              </View>
-
-              <View className="space-y-3">
-                {data.quickBudgets.map((budget, index) => (
-                  <View key={index} className="space-y-2">
-                    <View className="flex-row items-center justify-between">
-                      <Text className="text-sm font-medium text-gray-900 dark:text-white">
-                        {budget.categoryName}
-                      </Text>
-                      <View className="flex-row items-center space-x-2">
-                        <Text className="text-xs text-gray-500 dark:text-gray-400">
-                          {formatCurrency(budget.spentAmount)} /{" "}
-                          {formatCurrency(budget.budgetAmount)}
-                        </Text>
-                        <View
-                          className={`rounded-full px-2 py-1 ${
-                            budget.status === "exceeded"
-                              ? "bg-red-100 dark:bg-red-900/30"
-                              : budget.status === "warning"
-                                ? "bg-yellow-100 dark:bg-yellow-900/30"
-                                : "bg-green-100 dark:bg-green-900/30"
-                          }`}
-                        >
-                          <Text
-                            className={`text-xs font-medium ${
-                              budget.status === "exceeded"
-                                ? "text-red-700 dark:text-red-400"
-                                : budget.status === "warning"
-                                  ? "text-yellow-700 dark:text-yellow-400"
-                                  : "text-green-700 dark:text-green-400"
-                            }`}
-                          >
-                            {budget.percentage.toFixed(0)}%
-                          </Text>
-                        </View>
-                      </View>
-                    </View>
-
-                    <View className="h-2 rounded-full bg-gray-200 dark:bg-gray-700">
-                      <View
-                        className={`h-2 rounded-full ${
-                          budget.status === "exceeded"
-                            ? "bg-red-500 dark:bg-red-400"
-                            : budget.status === "warning"
-                              ? "bg-yellow-500 dark:bg-yellow-400"
-                              : "bg-green-500 dark:bg-green-400"
-                        }`}
-                        style={{ width: `${budget.percentage}%` }}
-                      />
-                    </View>
-                  </View>
-                ))}
-              </View>
-            </View>
-          )}
 
           {/* Card de Gráfico de Categorias */}
           <View

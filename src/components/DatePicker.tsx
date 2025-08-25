@@ -1,6 +1,7 @@
 import React, { useState } from "react";
-import { View, Text, TouchableOpacity, Modal, Platform } from "react-native";
+import { View, Text, TouchableOpacity, Platform } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import DateTimePicker from "@react-native-community/datetimepicker";
 
 interface DatePickerProps {
   value: Date;
@@ -53,11 +54,7 @@ export function DatePicker({
     }
   };
 
-  // Por enquanto, vamos usar um seletor simples
-  // TODO: Implementar com expo-date-picker quando necessário
   const handlePress = () => {
-    // Por enquanto, apenas atualiza para data atual
-    // Em produção, implementar modal com seletor de data
     setShowPicker(true);
   };
 
@@ -79,41 +76,19 @@ export function DatePicker({
 
       {error && <Text className="mt-1 text-sm text-red-500">{error}</Text>}
 
-      {/* Modal simples para demonstração */}
-      <Modal visible={showPicker} transparent animationType="fade">
-        <View className="flex-1 items-center justify-center bg-black/50">
-          <View className="mx-4 w-80 rounded-xl bg-white p-6 dark:bg-gray-800">
-            <Text className="mb-4 text-lg font-semibold text-gray-900 dark:text-white">
-              Selecionar {mode === "date" ? "Data" : mode === "time" ? "Hora" : "Data e Hora"}
-            </Text>
-
-            <Text className="mb-6 text-center text-gray-600 dark:text-gray-400">
-              Data atual: {formatDate(new Date())}
-            </Text>
-
-            <View className="flex-row justify-between">
-              <TouchableOpacity
-                onPress={() => setShowPicker(false)}
-                className="mr-2 flex-1 rounded-lg bg-gray-300 px-6 py-3 dark:bg-gray-600"
-              >
-                <Text className="text-center font-medium text-gray-700 dark:text-gray-300">
-                  Cancelar
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                onPress={() => {
-                  onDateChange(new Date());
-                  setShowPicker(false);
-                }}
-                className="ml-2 flex-1 rounded-lg bg-blue-500 px-6 py-3"
-              >
-                <Text className="text-center font-medium text-white">Hoje</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
+      {showPicker && (
+        <DateTimePicker
+          value={value}
+          mode={mode}
+          display={Platform.OS === "ios" ? "spinner" : "default"}
+          onChange={(event, selectedDate) => {
+            setShowPicker(Platform.OS === "ios");
+            if (selectedDate) onDateChange(selectedDate);
+          }}
+          minimumDate={new Date(2000, 0, 1)}
+          maximumDate={new Date(2100, 11, 31)}
+        />
+      )}
     </View>
   );
 }

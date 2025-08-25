@@ -22,6 +22,9 @@ export const seedDatabase = async (db: SQLite.SQLiteDatabase) => {
   // Inserir orçamentos exemplo
   await seedBudgets(db);
 
+  // Inserir recorrências exemplo
+  await seedRecurrences(db);
+
   if (__DEV__) console.log("Database seeding completed");
 };
 
@@ -222,4 +225,126 @@ const seedBudgets = async (db: SQLite.SQLiteDatabase) => {
   }
 
   if (__DEV__) console.log("Seed de orçamentos concluído!");
+};
+
+const seedRecurrences = async (db: SQLite.SQLiteDatabase) => {
+  if (__DEV__) console.log("Iniciando seed de recorrências...");
+
+  // Pegar contas e categorias para recorrências
+  const carteira = await db.getFirstAsync<{ id: string }>(
+    'SELECT id FROM accounts WHERE name = "Carteira"'
+  );
+  const contaCorrente = await db.getFirstAsync<{ id: string }>(
+    'SELECT id FROM accounts WHERE name = "Conta Corrente"'
+  );
+
+  const salario = await db.getFirstAsync<{ id: string }>(
+    'SELECT id FROM categories WHERE name = "Salário" AND type = "income"'
+  );
+  const moradia = await db.getFirstAsync<{ id: string }>(
+    'SELECT id FROM categories WHERE name = "Moradia" AND type = "expense"'
+  );
+  const transporte = await db.getFirstAsync<{ id: string }>(
+    'SELECT id FROM categories WHERE name = "Transporte" AND type = "expense"'
+  );
+  const supermercado = await db.getFirstAsync<{ id: string }>(
+    'SELECT id FROM categories WHERE name = "Supermercado" AND type = "expense"'
+  );
+
+  if (__DEV__)
+    console.log("IDs encontrados:", {
+      carteira,
+      contaCorrente,
+      salario,
+      moradia,
+      transporte,
+      supermercado,
+    });
+
+  const now = new Date();
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
+  const nextYear = new Date(now.getFullYear() + 1, now.getMonth(), 1).toISOString().slice(0, 10);
+
+  const recurrences = [
+    {
+      name: "Salário",
+      description: "Salário mensal",
+      type: "income",
+      amount: 5000,
+      account_id: contaCorrente?.id || carteira?.id || "1",
+      category_id: salario?.id || null,
+      start_date: startOfMonth,
+      end_date: nextYear,
+      frequency: "monthly",
+      frequency_data: JSON.stringify({ day_of_month: 5 }), // Todo dia 5
+      next_occurrence: `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, "0")}-05`,
+      is_active: 1,
+    },
+    {
+      name: "Aluguel",
+      description: "Aluguel da casa",
+      type: "expense",
+      amount: 1200,
+      account_id: contaCorrente?.id || carteira?.id || "1",
+      category_id: moradia?.id || null,
+      start_date: startOfMonth,
+      end_date: nextYear,
+      frequency: "monthly",
+      frequency_data: JSON.stringify({ day_of_month: 10 }), // Todo dia 10
+      next_occurrence: `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, "0")}-10`,
+      is_active: 1,
+    },
+    {
+      name: "Vale Transporte",
+      description: "Vale transporte mensal",
+      type: "expense",
+      amount: 180,
+      account_id: carteira?.id || "1",
+      category_id: transporte?.id || null,
+      start_date: startOfMonth,
+      end_date: nextYear,
+      frequency: "monthly",
+      frequency_data: JSON.stringify({ day_of_month: 1 }), // Todo dia 1
+      next_occurrence: `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, "0")}-01`,
+      is_active: 1,
+    },
+    {
+      name: "Compras Semanais",
+      description: "Supermercado toda semana",
+      type: "expense",
+      amount: 300,
+      account_id: carteira?.id || "1",
+      category_id: supermercado?.id || null,
+      start_date: startOfMonth,
+      end_date: nextYear,
+      frequency: "weekly",
+      frequency_data: JSON.stringify({ day_of_week: 6 }), // Todo sábado
+      next_occurrence: `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, "0")}-02`,
+      is_active: 1,
+    },
+  ];
+
+  for (const r of recurrences) {
+    if (__DEV__) console.log("Inserindo recorrência:", r);
+    await db.runAsync(
+      `INSERT INTO recurrences (name, description, type, amount, account_id, category_id, start_date, end_date, frequency, frequency_data, next_occurrence, is_active)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        r.name,
+        r.description,
+        r.type,
+        r.amount,
+        r.account_id,
+        r.category_id,
+        r.start_date,
+        r.end_date,
+        r.frequency,
+        r.frequency_data,
+        r.next_occurrence,
+        r.is_active,
+      ]
+    );
+  }
+
+  if (__DEV__) console.log("Seed de recorrências concluído!");
 };

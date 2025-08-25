@@ -38,6 +38,10 @@ export interface AppState {
   // Onboarding
   onboardingCompleted: boolean;
   setOnboardingCompleted: (completed: boolean) => void;
+
+  // Planejamento financeiro
+  estimatedMonthlyIncome: number;
+  setEstimatedMonthlyIncome: (income: number) => void;
 }
 
 export const useAppStore = create<AppState>()(
@@ -52,6 +56,7 @@ export const useAppStore = create<AppState>()(
       savedFilters: [],
       biometricEnabled: false,
       onboardingCompleted: false,
+      estimatedMonthlyIncome: 3500, // Valor padrão mais realista
 
       // Actions
       setTheme: (theme) => set({ theme }),
@@ -84,6 +89,7 @@ export const useAppStore = create<AppState>()(
         })),
       setBiometricEnabled: (biometricEnabled) => set({ biometricEnabled }),
       setOnboardingCompleted: (onboardingCompleted) => set({ onboardingCompleted }),
+      setEstimatedMonthlyIncome: (estimatedMonthlyIncome) => set({ estimatedMonthlyIncome }),
     }),
     {
       name: "app-storage",

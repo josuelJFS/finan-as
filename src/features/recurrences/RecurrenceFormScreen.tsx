@@ -8,6 +8,7 @@ import { AccountSelector, CategorySelector, MoneyInput, DatePicker } from "../..
 import { useRouter, useLocalSearchParams } from "expo-router";
 
 export default function RecurrenceFormScreen() {
+  const [isFixed, setIsFixed] = useState(false);
   const insets = useSafeAreaInsets();
   const bottomPadding = insets.bottom + 24;
   const [name, setName] = useState("");
@@ -51,6 +52,9 @@ export default function RecurrenceFormScreen() {
             setNotes(r.notes || "");
             setActive(r.is_active);
             setWeekDays(r.days_of_week || []);
+            setIsFixed(r.is_fixed ?? false);
+            if (r.is_fixed) setEndDate(null);
+            else setEndDate(r.end_date ? new Date(r.end_date) : null);
           }
         } catch (e) {
           console.warn(e);
@@ -71,7 +75,7 @@ export default function RecurrenceFormScreen() {
       return;
     if (type === "transfer" && !destAccountId) return;
     if (parseInt(intervalCount || "1", 10) < 1) return;
-    if (endDate && endDate < startDate) return;
+    if (!isFixed && endDate && endDate < startDate) return;
     setSaving(true);
     try {
       const dao = RecurrenceDAO.getInstance();
@@ -88,9 +92,14 @@ export default function RecurrenceFormScreen() {
           frequency,
           interval_count: parseInt(intervalCount || "1", 10),
           start_date: startDate.toISOString().substring(0, 10),
-          end_date: endDate ? endDate.toISOString().substring(0, 10) : undefined,
+          end_date: isFixed
+            ? undefined
+            : endDate
+              ? endDate.toISOString().substring(0, 10)
+              : undefined,
           day_of_month: dayOfMonth ? parseInt(dayOfMonth, 10) : undefined,
           is_active: active,
+          is_fixed: isFixed,
           days_of_week:
             frequency === "weekly" ? (weekDays.length ? weekDays : undefined) : undefined,
         });
@@ -107,9 +116,14 @@ export default function RecurrenceFormScreen() {
           frequency,
           interval_count: parseInt(intervalCount || "1", 10),
           start_date: startDate.toISOString().substring(0, 10),
-          end_date: endDate ? endDate.toISOString().substring(0, 10) : undefined,
+          end_date: isFixed
+            ? undefined
+            : endDate
+              ? endDate.toISOString().substring(0, 10)
+              : undefined,
           day_of_month: dayOfMonth ? parseInt(dayOfMonth, 10) : undefined,
           is_active: active,
+          is_fixed: isFixed,
           days_of_week:
             frequency === "weekly" ? (weekDays.length ? weekDays : undefined) : undefined,
         });
@@ -331,24 +345,47 @@ export default function RecurrenceFormScreen() {
             />
           </>
         )}
-        <View className="mt-2">
+        {/* Checkbox Fixa */}
+        <View className="mb-2 mt-2 flex-row items-center">
           <TouchableOpacity
-            onPress={() => setShowEndDatePicker((v) => !v)}
-            className="self-start rounded-md bg-gray-200 px-3 py-2 dark:bg-gray-700"
+            onPress={() => {
+              setIsFixed((v) => {
+                if (!v) setEndDate(null);
+                return !v;
+              });
+            }}
+            className={`mr-2 h-5 w-5 rounded border-2 ${isFixed ? "border-blue-600 bg-blue-600" : "border-gray-400 bg-white dark:bg-gray-800"}`}
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: isFixed }}
+            accessibilityLabel="Recorrência fixa, sem data de término"
           >
-            <Text className="text-xs font-semibold text-gray-800 dark:text-gray-200">
-              {showEndDatePicker ? "Remover data fim" : "Adicionar data fim"}
-            </Text>
+            {isFixed && <View className="flex-1 rounded bg-white" style={{ margin: 2 }} />}
           </TouchableOpacity>
-          {showEndDatePicker && (
-            <View className="mt-3">
-              <Text className="mb-1 text-xs font-semibold text-gray-600 dark:text-gray-300">
-                Data fim (opcional)
-              </Text>
-              <DatePicker value={endDate || new Date()} onDateChange={(d) => setEndDate(d)} />
-            </View>
-          )}
+          <Text className="text-xs text-gray-700 dark:text-gray-200">
+            Fixa (sem data de término)
+          </Text>
         </View>
+        {/* Data fim */}
+        {!isFixed && (
+          <View className="mt-2">
+            <TouchableOpacity
+              onPress={() => setShowEndDatePicker((v) => !v)}
+              className="self-start rounded-md bg-gray-200 px-3 py-2 dark:bg-gray-700"
+            >
+              <Text className="text-xs font-semibold text-gray-800 dark:text-gray-200">
+                {showEndDatePicker ? "Remover data fim" : "Adicionar data fim"}
+              </Text>
+            </TouchableOpacity>
+            {showEndDatePicker && (
+              <View className="mt-3">
+                <Text className="mb-1 text-xs font-semibold text-gray-600 dark:text-gray-300">
+                  Data fim (opcional)
+                </Text>
+                <DatePicker value={endDate || new Date()} onDateChange={(d) => setEndDate(d)} />
+              </View>
+            )}
+          </View>
+        )}
         <Text className="mb-1 text-xs font-semibold text-gray-600 dark:text-gray-300">Notas</Text>
         <TextInput
           value={notes}

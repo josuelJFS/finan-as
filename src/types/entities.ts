@@ -105,6 +105,7 @@ export interface Recurrence extends BaseEntity {
   end_date?: string;
   next_occurrence: string;
   is_active: boolean;
+  is_fixed: boolean; // true = recorrência sem data de término (fixa)
   tags?: string[];
 }
 
@@ -256,4 +257,44 @@ export interface UpdateTransactionData {
   tags?: string[];
   attachment_path?: string;
   is_pending?: boolean;
+}
+
+// Tipos para planejamento de despesas futuras
+export interface PlannedExpense extends BaseEntity {
+  name: string;
+  amount: number;
+  category_id?: string;
+  start_month: string; // YYYY-MM
+  end_month: string; // YYYY-MM
+  installments: number;
+  current_installment: number;
+  is_active: boolean;
+  notes?: string;
+}
+
+export interface MonthlyProjection {
+  month: string; // YYYY-MM
+  total_income: number;
+  fixed_expenses: number;
+  planned_expenses: number;
+  variable_expenses: number;
+  remaining_budget: number;
+  status: "positive" | "warning" | "negative";
+}
+
+export interface ExpenseProjection {
+  planned_expense_id: string;
+  month: string; // YYYY-MM
+  installment_number: number;
+  amount: number;
+  description: string;
+}
+
+export interface CreatePlannedExpenseData {
+  name: string;
+  amount: number;
+  category_id?: string;
+  start_month: string;
+  installments: number;
+  notes?: string;
 }

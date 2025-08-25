@@ -1,7 +1,7 @@
 import * as SQLite from "expo-sqlite";
 
 // Versão atual do banco de dados
-export const DB_VERSION = 5;
+export const DB_VERSION = 7;
 export const DB_NAME = "appfinanca.db";
 
 let db: SQLite.SQLiteDatabase | null = null;
@@ -68,6 +68,17 @@ const runMigrations = async (database: SQLite.SQLiteDatabase) => {
 
   if (currentVersion < 5) {
     await migration_005_add_investment_account(database);
+  }
+
+  if (currentVersion < 6) {
+    await migration_006_planned_expenses(database);
+  }
+
+  if (currentVersion < 7) {
+    // Adiciona coluna is_fixed à tabela recurrences
+    const addIsFixedToRecurrences = (await import("./migrations/007_add_is_fixed_to_recurrences"))
+      .default;
+    await addIsFixedToRecurrences(database);
   }
 
   // Atualizar versão do banco
@@ -464,4 +475,35 @@ const migration_005_add_investment_account = async (db: SQLite.SQLiteDatabase) =
   }
 
   if (__DEV__) console.log("Migration 005 completed");
+};
+
+// Migration 006 - Despesas planejadas
+const migration_006_planned_expenses = async (db: SQLite.SQLiteDatabase) => {
+  if (__DEV__) console.log("Running migration 006: Planned expenses");
+
+  await db.execAsync(`
+    -- Tabela de despesas planejadas
+    CREATE TABLE IF NOT EXISTS planned_expenses (
+      id TEXT PRIMARY KEY DEFAULT (hex(randomblob(16))),
+      name TEXT NOT NULL,
+      amount REAL NOT NULL,
+      category_id TEXT,
+      start_month TEXT NOT NULL, -- YYYY-MM format
+      end_month TEXT NOT NULL,   -- YYYY-MM format  
+      installments INTEGER NOT NULL DEFAULT 1,
+      current_installment INTEGER NOT NULL DEFAULT 1,
+      is_active INTEGER NOT NULL DEFAULT 1,
+      notes TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      FOREIGN KEY (category_id) REFERENCES categories (id)
+    );
+
+    -- Índices para despesas planejadas
+    CREATE INDEX IF NOT EXISTS idx_planned_expenses_active ON planned_expenses (is_active);
+    CREATE INDEX IF NOT EXISTS idx_planned_expenses_period ON planned_expenses (start_month, end_month);
+    CREATE INDEX IF NOT EXISTS idx_planned_expenses_category ON planned_expenses (category_id);
+  `);
+
+  if (__DEV__) console.log("Migration 006 completed");
 };

@@ -8,6 +8,8 @@ export { BudgetDAO } from "./BudgetDAO";
 export { CategoryDAO, type CategoryHierarchy, type CategoryUsageStats } from "./CategoryDAO";
 export { TransactionDAO, type MonthlyTrend, type CategorySummary } from "./TransactionDAO";
 export { RecurrenceDAO, materializeDueRecurrences, computeNextOccurrence } from "./RecurrenceDAO";
+export { FixedExpenseDAO } from "./FixedExpenseDAO";
+export { PlannedExpenseDAO } from "./PlannedExpenseDAO";
 // Backup utilities (export centralizado)
 export { exportBackupToFile, shareBackup, importBackup } from "../backup";
 
